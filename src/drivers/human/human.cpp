@@ -122,37 +122,52 @@ shutdown(int index)
 #include <string>   // Ensure this is at the very top of your human.cpp
 #include <iostream>
 
+#include <sys/stat.h> // For mkdir
+
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <libgen.h> // For dirname
+
+#include <unistd.h>
+#include <limits.h>
+
+#include <unistd.h>
+#include <sys/stat.h>
+
+#include <sys/stat.h>  // Add this at the top of your file
+
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
-
+    
     // Log once every 1.0 second
     if (s->currentTime - lastPosWriteTime < 1.0) {
         return;
     }
     lastPosWriteTime = s->currentTime;
-
+    
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
-
-    // New file: track_pos.json
-    std::string fullPath = std::string(homeDir) + "/CodeSpaces/Beam-Torcs/DrivingData/track_pos.json";
-
+    
+    // Create DrivingData directory if it doesn't exist
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+    
+    std::string fullPath = dataDir + "/track_pos.json";
+    
     std::ofstream outFile;
     outFile.open(fullPath.c_str(), std::ios_base::app); 
-
+    
     if (outFile.is_open()) {
         outFile << "{"
                 << "\"time\":" << s->currentTime << ","
                 << "\"pos_x\":" << car->_pos_X << ","
-                << "\"pos_y\":" << car->_pos_Y << ","
+                << "\"pos_y\":" << car->_pos_Y
                 << "}," << std::endl;
         outFile.close();
-        // Specific debug message for the new file
-        printf("Pos logged to: track_pos.json\n");
-    } else {
-        printf("ERROR: Could not open track_pos.json\n");
     }
 }
+
 /*
  * Function
  *	InitFuncPt
