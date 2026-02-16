@@ -24,6 +24,7 @@ libtool
 ltmain.sh
 stamp-h1
 ar-lib
+/export
 
 # --- IDE & System Files ---
 .vscode/
