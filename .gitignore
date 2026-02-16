@@ -6,7 +6,7 @@
 *.la
 .libs/
 .deps/
-# Ignore the hidden .depend files generated in src/
+# Ignore hidden .depend files recursively
 .depend
 
 # --- Build System Outputs ---
@@ -28,6 +28,10 @@ ltmain.sh
 stamp-h1
 ar-lib
 export
+
+# --- Source Specific Ignores ---
+# Ignore libs folders inside src or subfolders
+**/libs/
 
 # --- IDE & System Files ---
 .vscode/
