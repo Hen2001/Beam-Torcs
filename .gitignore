@@ -64,3 +64,6 @@ src/doc/torcsdoc.conf
 .torcs.rc
 src/doc/torcsdoc.conf
 src/doc/torcsdoc.conf
+.torcs.rc
+Make-config
+src/doc/torcsdoc.conf
