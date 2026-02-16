@@ -121,29 +121,29 @@ shutdown(int index)
 
 void logDrivingData(tCarElt* car, tSituation *s) {
     static double lastWriteTime = 0;
-    
-    // Only write data every 0.1 seconds (10Hz) to keep it efficient
-    if (s->currentTime - lastWriteTime < 0.1) {
+    static std::ofstream outFile("/home/lewis/Beam-Torcs/DrivingData/data.json");
+
+    if (s->currentTime - lastWriteTime < 0.1)
         return;
-    }
+
     lastWriteTime = s->currentTime;
-
-    // Define the path to your new directory
-    // Note: You may need to use the full path /home/Jdog/CodeSpaces/Beam-Torcs/DrivingData/data.json
-    std::ofstream outFile;
-    outFile.open("DrivingData/data.json", std::ios_base::app); // Append mode
-
     if (outFile.is_open()) {
         outFile << "{"
                 << "\"time\":" << s->currentTime << ","
                 << "\"pos_x\":" << car->_pos_X << ","
                 << "\"pos_y\":" << car->_pos_Y << ","
-                << "\"speed\":" << car->_speed_x * 3.6 << "," // Convert m/s to km/h
+                << "\"speed\":" << car->_speed_x * 3.6 << ","
                 << "\"track_pos\":" << car->_trkPos.toMiddle << ","
-                << "\"steer\":" << car->ctrl->steer
-                << "}," << std::endl;
-        outFile.close();
+                << "\"steer\":" << car->_steerCmd
+                << "}"
+                << std::endl;
+		outFile.flush();
+		printf("File Opened!");
     }
+	if (!outFile.is_open()) {
+    	printf("FILE FAILED TO OPEN\n");
+	}
+
 }
 
 /*
