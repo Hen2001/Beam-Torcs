@@ -47,6 +47,8 @@
 #include "pref.h"
 #include "human.h"
 
+
+
 #define DRWD 0
 #define DFWD 1
 #define D4WD 2
@@ -115,7 +117,34 @@ shutdown(int index)
 	}
 }
 
+#include <fstream> // Required for file writing
 
+void logDrivingData(tCarElt* car, tSituation *s) {
+    static double lastWriteTime = 0;
+    
+    // Only write data every 0.1 seconds (10Hz) to keep it efficient
+    if (s->currentTime - lastWriteTime < 0.1) {
+        return;
+    }
+    lastWriteTime = s->currentTime;
+
+    // Define the path to your new directory
+    // Note: You may need to use the full path /home/Jdog/CodeSpaces/Beam-Torcs/DrivingData/data.json
+    std::ofstream outFile;
+    outFile.open("DrivingData/data.json", std::ios_base::app); // Append mode
+
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"time\":" << s->currentTime << ","
+                << "\"pos_x\":" << car->_pos_X << ","
+                << "\"pos_y\":" << car->_pos_Y << ","
+                << "\"speed\":" << car->_speed_x * 3.6 << "," // Convert m/s to km/h
+                << "\"track_pos\":" << car->_trkPos.toMiddle << ","
+                << "\"steer\":" << car->ctrl->steer
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
 
 /*
  * Function
@@ -928,6 +957,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 
 	HCtx[idx]->lap = car->_laps;
+	logDrivingData(car, s); // Here is where the car Logs the driving data
 }
 
 

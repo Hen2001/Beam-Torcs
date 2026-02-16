@@ -1,32 +1,44 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
+# --- Compiled Binaries & Objects ---
 *.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
 *.a
-*.lib
+*.so
+*.lo
+*.la
+.libs/
+.deps/
 
-# Executables
-*.exe
-*.out
-*.app
+# --- Build System Outputs ---
+Makefile
+Makefile.in
+configure
+config.log
+config.status
+config.cache
+aclocal.m4
+autom4te.cache/
+compile
+install-sh
+missing
+depcomp
+libtool
+ltmain.sh
+stamp-h1
+ar-lib
+
+# --- IDE & System Files ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# --- TORCS Specific Data ---
+# We generally ignore the runtime data if it's generated during 'make datainstall'
+# but keep the source assets.
+runtime/
+export/
+
+# --- Your Custom Data ---
+# Ignore the actual data logs so you don't commit massive JSON files to GitHub
+DrivingData/*.json
+DrivingData/*.csv
