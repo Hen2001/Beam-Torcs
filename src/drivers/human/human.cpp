@@ -140,7 +140,6 @@ shutdown(int index)
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
     
-    // Log once every 1.0 second
     if (s->currentTime - lastPosWriteTime < 1.0) {
         return;
     }
@@ -149,7 +148,6 @@ void logTrackPosition(tCarElt* car, tSituation *s) {
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
     
-    // Create DrivingData directory if it doesn't exist
     std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
     mkdir(dataDir.c_str(), 0755);
     
@@ -162,9 +160,14 @@ void logTrackPosition(tCarElt* car, tSituation *s) {
         outFile << "{"
                 << "\"time\":" << s->currentTime << ","
                 << "\"pos_x\":" << car->_pos_X << ","
-                << "\"pos_y\":" << car->_pos_Y
+                << "\"pos_y\":" << car->_pos_Y << ","
+                << "\"track_pos\":" << car->_trkPos.toMiddle << ","  // Distance from track center (-track_width/2 to +track_width/2)
+                << "\"segment_id\":" << car->_trkPos.seg->id << ","  // Current track segment
+                << "\"to_start\":" << car->_trkPos.toStart << ","    // Distance along track from start line
+                << "\"lap\":" << car->_laps                          // Current lap number
                 << "}," << std::endl;
         outFile.close();
+        printf("Pos logged to: %s\n", fullPath.c_str());
     }
 }
 
