@@ -55,16 +55,14 @@
     </section>
 
   </section>
-
-  <section name="Drivers">
+   <section name="Drivers">
     <attnum name="maximum number" val="40"/>
-    <attnum name="focused idx" val="0"/>
-    <attstr name="focused module" val="scr_server"/>
-    <section name="1">
+    <attnum name="focused idx" val="1"/>
+    <attstr name="focused module" val="human"/>   
+     <section name="1">
       <attnum name="idx" val="0"/>
-      <attstr name="module" val="scr_server"/>
-    </section>
-
+      <attstr name="module" val="human"/>          
+      </section>
   </section>
 
   <section name="Configuration">

@@ -119,33 +119,40 @@ shutdown(int index)
 
 #include <fstream> // Required for file writing
 
-void logDrivingData(tCarElt* car, tSituation *s) {
-    static double lastWriteTime = 0;
-    
-    // Only write data every 0.1 seconds (10Hz) to keep it efficient
-    if (s->currentTime - lastWriteTime < 0.1) {
+#include <string>   // Ensure this is at the very top of your human.cpp
+#include <iostream>
+
+void logTrackPosition(tCarElt* car, tSituation *s) {
+    static double lastPosWriteTime = 0;
+
+    // Log once every 1.0 second
+    if (s->currentTime - lastPosWriteTime < 1.0) {
         return;
     }
-    lastWriteTime = s->currentTime;
+    lastPosWriteTime = s->currentTime;
 
-    // Define the path to your new directory
-    // Note: You may need to use the full path /home/Jdog/CodeSpaces/Beam-Torcs/DrivingData/data.json
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+
+    // New file: track_pos.json
+    std::string fullPath = std::string(homeDir) + "/CodeSpaces/Beam-Torcs/DrivingData/track_pos.json";
+
     std::ofstream outFile;
-    outFile.open("DrivingData/data.json", std::ios_base::app); // Append mode
+    outFile.open(fullPath.c_str(), std::ios_base::app); 
 
     if (outFile.is_open()) {
         outFile << "{"
                 << "\"time\":" << s->currentTime << ","
                 << "\"pos_x\":" << car->_pos_X << ","
                 << "\"pos_y\":" << car->_pos_Y << ","
-                << "\"speed\":" << car->_speed_x * 3.6 << "," // Convert m/s to km/h
-                << "\"track_pos\":" << car->_trkPos.toMiddle << ","
-                << "\"steer\":" << car->ctrl->steer
                 << "}," << std::endl;
         outFile.close();
+        // Specific debug message for the new file
+        printf("Pos logged to: track_pos.json\n");
+    } else {
+        printf("ERROR: Could not open track_pos.json\n");
     }
 }
-
 /*
  * Function
  *	InitFuncPt
@@ -938,7 +945,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 			}
 		}
 	}
-
+	logTrackPosition(car, s); // Here is where the car Logs the driving data
 
 #ifndef WIN32
 #ifdef TELEMETRY
@@ -957,7 +964,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 
 	HCtx[idx]->lap = car->_laps;
-	logDrivingData(car, s); // Here is where the car Logs the driving data
+	
 }
 
 
