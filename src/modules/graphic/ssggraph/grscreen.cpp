@@ -35,8 +35,14 @@
 #include "grcar.h"
 #include "grboard.h"
 #include "grcarlight.h"
-
+#include <tgfclient.h>
 #include "grscreen.h"
+#include <GL/glut.h>
+#include <string>
+
+std::string chatbotMessage = "Waiting for AI...";
+int telemetryHudEnabled = 1;   // default ON
+
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -298,6 +304,87 @@ void cGrScreen::camDraw(tSituation *s)
 	STOP_PROFILE("grDrawScene*");
 }
 
+void setTelemetryHud(int enabled)
+{
+    telemetryHudEnabled = enabled;
+
+    GfParmSetNum(grHandle,
+                 GR_SCT_GRAPHIC,
+                 "TelemetryHUD",
+                 NULL,
+                 (tdble)enabled);
+
+    GfParmWriteFile(NULL, grHandle, "Graph");
+}
+
+void updateTelemetryMessage(tCarElt* car, tSituation* s)
+{
+    char buffer[256];
+
+    float speed = car->_speed_x * 3.6f;   // km/h
+    float posX  = car->_pos_X;
+    float posY  = car->_pos_Y;
+    float steer = car->_steerCmd;
+
+    snprintf(buffer, sizeof(buffer),
+             "Speed: %.1f km/h\nX: %.2f\nY: %.2f\nSteer: %.2f",
+             speed, posX, posY, steer);
+
+    chatbotMessage = buffer;
+}
+
+
+void drawBitmapText(const char *text, float x, float y)
+{
+    glRasterPos2f(x, y);
+    while (*text) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *text);
+        text++;
+    }
+}
+
+void drawChatPanel()
+{
+    float left   = 0.0f;
+    float bottom = 20.0f;
+    float width  = 260.0f;
+    float height = 45.0f;
+
+    float right  = left + width;
+    float top    = bottom + height;
+
+    // Enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // ---- Outer Border ----
+    glColor4f(0.2f, 0.2f, 0.2f, 0.5f);
+    glBegin(GL_QUADS);
+        glVertex2f(left - 2,  bottom - 2);
+        glVertex2f(right + 2, bottom - 2);
+        glVertex2f(right + 2, top + 2);
+        glVertex2f(left - 2,  top + 2);
+    glEnd();
+
+    // ---- Inner Panel ----
+    glColor4f(0.0f, 0.0f, 0.0f, 0.35f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    // ---- Text ----
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawBitmapText(chatbotMessage.c_str(), left + 15, bottom + height - 25);
+}
+
+
+
+
 
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
@@ -383,6 +470,11 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
+	if (telemetryHudEnabled) {
+    	updateTelemetryMessage(curCar, s);
+    	drawChatPanel();
+	}
+
 	TRACE_GL("cGrScreen::update display boards");
 	
 	STOP_PROFILE("grDisp**");
@@ -447,6 +539,13 @@ void cGrScreen::loadParams(tSituation *s)
 	curCam->loadDefaults(buf);
 	drawCurrent = curCam->getDrawCurrent();
 	board->loadDefaults(curCar);
+	telemetryHudEnabled =
+    (int)GfParmGetNum(grHandle,
+                      GR_SCT_GRAPHIC,
+                      "TelemetryHUD",
+                      NULL,
+                      1);
+
 }
 
 
