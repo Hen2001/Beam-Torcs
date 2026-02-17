@@ -167,9 +167,42 @@ void logTrackPosition(tCarElt* car, tSituation *s) {
                 << "\"lap\":" << car->_laps                          // Current lap number
                 << "}," << std::endl;
         outFile.close();
-        printf("Pos logged to: %s\n", fullPath.c_str());
     }
 }
+
+void logSpeed(tCarElt* car, tSituation *s) {
+    static double lastPosWriteTime = 0;
+    
+    if (s->currentTime - lastPosWriteTime < 0.5) {
+        return;
+    }
+    lastPosWriteTime = s->currentTime;
+    
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+    
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+    
+    std::string fullPath = dataDir + "/speed.json";
+    
+    std::ofstream outFile;
+    outFile.open(fullPath.c_str(), std::ios_base::app); 
+    
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"time\":" << s->currentTime << ","
+                << "\"segment_id\":" << car->_trkPos.seg->id << ","  
+				<< "\"speedX\":" << car->_speed_X << ","
+				<< "\"speedy\":" << car->_speed_Y << ","
+				<< "\"speed?\":" << car->_speed_x << ","
+
+
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+
 
 /*
  * Function
@@ -382,8 +415,31 @@ static void initTrack(int index, tTrack* track, void *carHandle, void **carParmH
  *
  */
 
+static void clearDrivingData()
+{
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+
+    const char* files[] = {
+        "track_pos.json",
+        "speed.json",
+        // "inputs.json",
+        NULL  
+    };
+
+    for (int i = 0; files[i] != NULL; i++) {   // File Clear
+        std::string fullPath = dataDir + "/" + files[i];
+        std::ofstream f(fullPath.c_str(), std::ios::out | std::ios::trunc);
+        f.close();
+    }
+	printf("File Cleared.\n");
+}
+
 void newrace(int index, tCarElt* car, tSituation *s)
 {
+	clearDrivingData();
 	int idx = index - 1;
 
 	if (HCtx[idx]->MouseControlUsed) {
@@ -428,6 +484,7 @@ void newrace(int index, tCarElt* car, tSituation *s)
 		HCtx[idx]->autoClutch = 1;
 	else
 		HCtx[idx]->autoClutch = 0;
+
 }
 
 static void
@@ -964,6 +1021,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		}
 	}
 	logTrackPosition(car, s); // Here is where the car Logs the driving data
+	logSpeed(car, s);
 
 #ifndef WIN32
 #ifdef TELEMETRY
