@@ -52,7 +52,6 @@ float grFps;
 double grCurTime;
 double grDeltaTime;
 int segIndice = 0;
-char chatbotMessage[512] = "Waiting for AI...";
 tdble grMaxDammage = 10000.0;
 int grNbCars = 0;
 

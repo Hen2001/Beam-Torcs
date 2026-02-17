@@ -38,7 +38,9 @@
 #include <tgfclient.h>
 #include "grscreen.h"
 #include <GL/glut.h>
-extern char chatbotMessage[512];
+#include <string>
+
+std::string chatbotMessage = "Waiting for AI...";
 
 
 cGrScreen::cGrScreen(int myid)
@@ -301,7 +303,20 @@ void cGrScreen::camDraw(tSituation *s)
 	STOP_PROFILE("grDrawScene*");
 }
 
-extern char chatbotMessage[512];
+void updateTelemetryMessage(tCarElt* car, tSituation* s)
+{
+    char buffer[256];
+
+    float speed = car->_speed_x * 3.6f;   // km/h
+    float trackPos = car->_trkPos.toMiddle;
+    float steer = car->_steerCmd;
+
+    snprintf(buffer, sizeof(buffer),
+             "Speed: %.1f km/h\nTrack Pos: %.2f\nSteer: %.2f",
+             speed, trackPos, steer);
+
+    chatbotMessage = buffer;
+}
 
 void drawBitmapText(const char *text, float x, float y)
 {
@@ -315,7 +330,7 @@ void drawBitmapText(const char *text, float x, float y)
 void drawChatPanel()
 {
     float left   = 0.0f;
-    float bottom = 10.0f;
+    float bottom = 20.0f;
     float width  = 260.0f;
     float height = 45.0f;
 
@@ -348,7 +363,7 @@ void drawChatPanel()
 
     // ---- Text ----
     glColor3f(1.0f, 1.0f, 1.0f);
-    drawBitmapText(chatbotMessage, left + 15, bottom + height - 25);
+    drawBitmapText(chatbotMessage.c_str(), left + 15, bottom + height - 25);
 }
 
 
@@ -439,6 +454,7 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
+	updateTelemetryMessage(curCar, s);
 	drawChatPanel();
 	TRACE_GL("cGrScreen::update display boards");
 	
