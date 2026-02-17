@@ -307,17 +307,17 @@ void drawBitmapText(const char *text, float x, float y)
 {
     glRasterPos2f(x, y);
     while (*text) {
-        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text);
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *text);
         text++;
     }
 }
 
 void drawChatPanel()
 {
-    float left   = 20.0f;
-    float bottom = 20.0f;
-    float width  = 380.0f;
-    float height = 80.0f;
+    float left   = 0.0f;
+    float bottom = 10.0f;
+    float width  = 260.0f;
+    float height = 45.0f;
 
     float right  = left + width;
     float top    = bottom + height;
