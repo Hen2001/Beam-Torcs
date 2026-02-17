@@ -223,6 +223,28 @@ static int lastMacroSegment = -1;
 static double segmentStartTime = 0;
 static int lastLap = -1;
 
+
+void writeSegmentTimeToJson(int segment, int lap, double time) {
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+
+    std::string fullPath = dataDir + "/segment_times.json";
+
+    std::ofstream outFile(fullPath.c_str(), std::ios_base::app);
+
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"lap\":" << lap << ","
+                << "\"segment\":" << segment << ","
+                << "\"time\":" << time
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+
 void logSegmentPosition(tCarElt *car, tSituation *s)
 {
 	int segId = car->_trkPos.seg->id;
@@ -249,26 +271,6 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
 	}
 }
 
-void writeSegmentTimeToJson(int segment, int lap, double time) {
-    const char* homeDir = getenv("HOME");
-    if (!homeDir) return;
-
-    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-    mkdir(dataDir.c_str(), 0755);
-
-    std::string fullPath = dataDir + "/segment_times.json";
-
-    std::ofstream outFile(fullPath.c_str(), std::ios_base::app);
-
-    if (outFile.is_open()) {
-        outFile << "{"
-                << "\"lap\":" << lap << ","
-                << "\"segment\":" << segment << ","
-                << "\"time\":" << time
-                << "}," << std::endl;
-        outFile.close();
-    }
-}
   
   static void endStatistics(tCarElt* car, tSituation *s)
 {
