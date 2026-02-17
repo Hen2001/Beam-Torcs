@@ -1,32 +1,72 @@
-# Prerequisites
-*.d
-
-# Compiled Object files
-*.slo
-*.lo
+# --- Compiled Binaries & Objects ---
 *.o
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
 *.a
-*.lib
+*.so
+*.lo
+*.la
+.libs/
+.deps/
+# Ignore hidden .depend files recursively
+.depend
 
-# Executables
-*.exe
-*.out
-*.app
+# --- Build System Outputs ---
+Makefile
+Makefile.in
+Make-config
+configure
+config.log
+config.status
+config.cache
+aclocal.m4
+autom4te.cache/
+compile
+install-sh
+missing
+depcomp
+libtool
+ltmain.sh
+stamp-h1
+ar-lib
+export
+
+# --- Source Specific Ignores ---
+# Ignore libs folders inside src or subfolders
+**/libs/
+
+# --- IDE & System Files ---
+.vscode/
+.idea/
+*.swp
+*~
+.DS_Store
+
+# --- TORCS Specific Data ---
+runtime/
+export/
+
+# --- Your Custom Data ---
+DrivingData/*.json
+DrivingData/*.csv
+src/linux/torcs-bin
+src/tools/package/specfiles/torcs-data-cars-extra.spec
+src/tools/package/specfiles/torcs-data-cars-kcendra-gt.spec
+src/tools/package/specfiles/torcs-data-cars-kcendra-sport.spec
+src/tools/package/specfiles/torcs-data-tracks-base.spec
+src/tools/package/specfiles/torcs.spec
+.gitignore
+src/tools/package/specfiles/torcs-robot-K1999.spec
+src/tools/package/specfiles/torcs-robot-base.spec
+src/tools/package/specfiles/torcs-data.spec
+src/tools/package/specfiles/torcs-data-cars-Patwo-Design.spec
+src/tools/package/specfiles/torcs-data-cars-kcendra-roadsters.spec
+src/doc/torcsdoc.conf
+src/doc/torcsdoc.conf
+.torcs.rc
+src/doc/torcsdoc.conf
+src/doc/torcsdoc.conf
+.torcs.rc
+Make-config
+src/doc/torcsdoc.conf
+.torcs.rc
+.torcs.rc
+Make-config

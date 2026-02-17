@@ -47,6 +47,8 @@
 #include "pref.h"
 #include "human.h"
 
+
+
 #define DRWD 0
 #define DFWD 1
 #define D4WD 2
@@ -115,7 +117,59 @@ shutdown(int index)
 	}
 }
 
+#include <fstream> // Required for file writing
 
+#include <string>   // Ensure this is at the very top of your human.cpp
+#include <iostream>
+
+#include <sys/stat.h> // For mkdir
+
+#include <string>
+#include <iostream>
+#include <fstream>
+#include <libgen.h> // For dirname
+
+#include <unistd.h>
+#include <limits.h>
+
+#include <unistd.h>
+#include <sys/stat.h>
+
+#include <sys/stat.h>  // Add this at the top of your file
+
+void logTrackPosition(tCarElt* car, tSituation *s) {
+    static double lastPosWriteTime = 0;
+    
+    if (s->currentTime - lastPosWriteTime < 1.0) {
+        return;
+    }
+    lastPosWriteTime = s->currentTime;
+    
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+    
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+    
+    std::string fullPath = dataDir + "/track_pos.json";
+    
+    std::ofstream outFile;
+    outFile.open(fullPath.c_str(), std::ios_base::app); 
+    
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"time\":" << s->currentTime << ","
+                << "\"pos_x\":" << car->_pos_X << ","
+                << "\"pos_y\":" << car->_pos_Y << ","
+                << "\"track_pos\":" << car->_trkPos.toMiddle << ","  // Distance from track center (-track_width/2 to +track_width/2)
+                << "\"segment_id\":" << car->_trkPos.seg->id << ","  // Current track segment
+                << "\"to_start\":" << car->_trkPos.toStart << ","    // Distance along track from start line
+                << "\"lap\":" << car->_laps                          // Current lap number
+                << "}," << std::endl;
+        outFile.close();
+        printf("Pos logged to: %s\n", fullPath.c_str());
+    }
+}
 
 /*
  * Function
@@ -909,7 +963,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 			}
 		}
 	}
-
+	logTrackPosition(car, s); // Here is where the car Logs the driving data
 
 #ifndef WIN32
 #ifdef TELEMETRY
@@ -928,6 +982,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 
 	HCtx[idx]->lap = car->_laps;
+	
 }
 
 
