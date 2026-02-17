@@ -46,7 +46,7 @@
 #include <playerpref.h>
 #include "pref.h"
 #include "human.h"
-
+#include <map>
 
 
 #define DRWD 0
@@ -139,6 +139,180 @@ shutdown(int index)
 #include <sys/stat.h>
 
 
+static void printPerformanceReport(tCarElt* car, tSituation *s)
+{
+    // Target values
+    static const double SEGMENT_TARGETS[9] = {
+        3.3,   // Segment 0
+        8.5,   // Segment 1
+        7.3,   // Segment 2
+        6.5,   // Segment 3
+        8.1,   // Segment 4
+        8.65,  // Segment 5
+        12.75, // Segment 6
+        5.2,   // Segment 7
+        10.45  // Segment 8
+    };
+    static const double TARGET_LAP_TIME  = 70.0;   // seconds
+    static const double TARGET_AVG_SPEED = 176.0;  // km/h
+    static const double WARN_PCT         = 10.0;   // % over target = BAD
+
+    // ANSI colours
+    const char* GREEN  = "\033[92m";
+    const char* RED    = "\033[91m";
+    const char* YELLOW = "\033[93m";
+    const char* CYAN   = "\033[96m";
+    const char* BOLD   = "\033[1m";
+    const char* RESET  = "\033[0m";
+
+    auto rating = [&](double actual, double target, bool lowerIsBetter) -> const char* {
+        if (target == 0.0) return YELLOW;
+        double pct = ((actual - target) / target) * 100.0;
+        if (lowerIsBetter) {
+            if (pct <= 0)         return GREEN;
+            if (pct <= WARN_PCT)  return YELLOW;
+            return RED;
+        } else {
+            if (pct >= 0)         return GREEN;
+            if (pct >= -WARN_PCT) return YELLOW;
+            return RED;
+        }
+    };
+
+    auto symbol = [&](double actual, double target, bool lowerIsBetter) -> const char* {
+        if (target == 0.0) return "~";
+        double pct = ((actual - target) / target) * 100.0;
+        if (lowerIsBetter) {
+            if (pct <= 0)         return "GOOD ✓";
+            if (pct <= WARN_PCT)  return "OK   ~";
+            return "BAD  ✗";
+        } else {
+            if (pct >= 0)         return "GOOD ✓";
+            if (pct >= -WARN_PCT) return "OK   ~";
+            return "BAD  ✗";
+        }
+    };
+
+    // ── Read segment_times.json ───────────────────────────────────────────────
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+
+    // Accumulate segment times per lap: segTimes[lap][segment] = sum, segCounts[lap][segment] = count
+    std::map<int, std::map<int, double>> segTimes;
+    std::map<int, std::map<int, int>>    segCounts;
+
+    std::ifstream segFile((dataDir + "/segment_times.json").c_str());
+    if (segFile.is_open()) {
+        std::string line;
+        while (std::getline(segFile, line)) {
+            // Strip trailing comma
+            if (!line.empty() && line.back() == ',') line.pop_back();
+            if (line.empty()) continue;
+
+            // Simple manual JSON parse: {"lap":N,"segment":N,"time":F}
+            int lap = -1, seg = -1;
+            double t = 0.0;
+
+            // Parse lap
+            size_t pos = line.find("\"lap\":");
+            if (pos != std::string::npos) {
+                lap = std::stoi(line.substr(pos + 6));
+            }
+            // Parse segment
+            pos = line.find("\"segment\":");
+            if (pos != std::string::npos) {
+                seg = std::stoi(line.substr(pos + 10));
+            }
+            // Parse time
+            pos = line.find("\"time\":");
+            if (pos != std::string::npos) {
+                t = std::stod(line.substr(pos + 7));
+            }
+
+            if (lap >= 0 && seg >= 0) {
+                segTimes[lap][seg]  += t;
+                segCounts[lap][seg] += 1;
+            }
+        }
+        segFile.close();
+    }
+
+    // ── Print report ─────────────────────────────────────────────────────────
+    printf("\n%s%s╔══════════════════════════════════════════════════╗%s\n", BOLD, CYAN, RESET);
+    printf("%s%s║        TORCS Player Performance Report           ║%s\n", BOLD, CYAN, RESET);
+    printf("%s%s╚══════════════════════════════════════════════════╝%s\n", BOLD, CYAN, RESET);
+
+    // Segment analysis per lap
+    for (auto& lapEntry : segTimes) {
+        int lap = lapEntry.first;
+        printf("\n%s%s── Lap %d Segment Analysis ──%s\n", BOLD, CYAN, lap, RESET);
+        printf("  %-6s %8s %8s %8s %7s  %s\n", "Seg", "Time", "Target", "Diff", "Diff%", "Rating");
+        printf("  %s\n", "-------------------------------------------------------");
+
+        for (int seg = 0; seg < 9; seg++) {
+            double target = SEGMENT_TARGETS[seg];
+            if (segCounts[lap].count(seg) == 0) {
+                printf("  %-6d %8s %8.2f   %7s  %sNO DATA%s\n",
+                       seg + 1, "N/A", target, "---", YELLOW, RESET);
+                continue;
+            }
+            double avg  = segTimes[lap][seg] / segCounts[lap][seg];
+            double diff = avg - target;
+            double pct  = (target != 0.0) ? ((avg - target) / target * 100.0) : 0.0;
+            const char* col = rating(avg, target, true);
+            const char* sym = symbol(avg, target, true);
+            printf("  %-6d %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
+                   seg + 1, avg, target, diff, pct, col, sym, RESET);
+        }
+    }
+
+    // Lap time analysis
+    printf("\n%s%s── Lap Times ──%s\n", BOLD, CYAN, RESET);
+    printf("  %-6s %8s %8s %8s %7s  %s\n", "Lap", "Time", "Target", "Diff", "Diff%", "Rating");
+    printf("  %s\n", "-------------------------------------------------------");
+
+    for (int i = 0; i < lapCount; i++) {
+        double t    = lapTimes[i];
+        double diff = t - TARGET_LAP_TIME;
+        double pct  = (TARGET_LAP_TIME != 0.0) ? ((t - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
+        const char* col = rating(t, TARGET_LAP_TIME, true);
+        const char* sym = symbol(t, TARGET_LAP_TIME, true);
+        printf("  %-6d %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
+               i + 1, t, TARGET_LAP_TIME, diff, pct, col, sym, RESET);
+    }
+
+    // Overall stats
+    double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) * 3.6 : 0.0;
+    double bestLap  = car->_bestLapTime;
+
+    printf("\n%s%s── Overall Stats ──%s\n", BOLD, CYAN, RESET);
+    printf("  Laps completed : %d\n", car->_laps);
+    printf("  Damage         : %d\n", car->_dammage);
+
+    {
+        double diff = avgSpeed - TARGET_AVG_SPEED;
+        double pct  = (TARGET_AVG_SPEED != 0.0) ? ((avgSpeed - TARGET_AVG_SPEED) / TARGET_AVG_SPEED * 100.0) : 0.0;
+        const char* col = rating(avgSpeed, TARGET_AVG_SPEED, false);
+        const char* sym = symbol(avgSpeed, TARGET_AVG_SPEED, false);
+        printf("  Avg speed      : %.1f km/h  (target %.0f km/h)  %+.1f  %s%s%s\n",
+               avgSpeed, TARGET_AVG_SPEED, diff, col, sym, RESET);
+    }
+    {
+        double diff = bestLap - TARGET_LAP_TIME;
+        double pct  = (TARGET_LAP_TIME != 0.0) ? ((bestLap - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
+        const char* col = rating(bestLap, TARGET_LAP_TIME, true);
+        const char* sym = symbol(bestLap, TARGET_LAP_TIME, true);
+        printf("  Best lap       : %.2fs  (target %.0fs)  %+.2f  %s%s%s\n",
+               bestLap, TARGET_LAP_TIME, diff, col, sym, RESET);
+    }
+
+    printf("\n%s%s══════════════════════════════════════════════════%s\n", BOLD, CYAN, RESET);
+    printf("  Legend: %sGOOD ✓%s at/under target   %sOK ~%s within %.0f%%   %sBAD ✗%s over %.0f%% off\n",
+           GREEN, RESET, YELLOW, RESET, WARN_PCT, RED, RESET, WARN_PCT);
+    printf("%s%s══════════════════════════════════════════════════%s\n\n", BOLD, CYAN, RESET);
+}
+
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
     
@@ -168,7 +342,7 @@ void logTrackPosition(tCarElt* car, tSituation *s) {
                 << "\"to_start\":" << car->_trkPos.toStart << ","    // Distance along track from start line
                 << "\"lap\":" << car->_laps                          // Current lap number
                 << "}," << std::endl;
-        outFile.close();
+       
     }
 }
 
@@ -274,6 +448,7 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
   static void endStatistics(tCarElt* car, tSituation *s)
 {
+	printPerformanceReport(car, s);
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
 
