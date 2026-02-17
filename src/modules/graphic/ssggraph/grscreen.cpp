@@ -308,15 +308,17 @@ void updateTelemetryMessage(tCarElt* car, tSituation* s)
     char buffer[256];
 
     float speed = car->_speed_x * 3.6f;   // km/h
-    float trackPos = car->_trkPos.toMiddle;
+    float posX  = car->_pos_X;
+    float posY  = car->_pos_Y;
     float steer = car->_steerCmd;
 
     snprintf(buffer, sizeof(buffer),
-             "Speed: %.1f km/h\nTrack Pos: %.2f\nSteer: %.2f",
-             speed, trackPos, steer);
+             "Speed: %.1f km/h\nX: %.2f\nY: %.2f\nSteer: %.2f",
+             speed, posX, posY, steer);
 
     chatbotMessage = buffer;
 }
+
 
 void drawBitmapText(const char *text, float x, float y)
 {
