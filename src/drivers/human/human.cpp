@@ -204,7 +204,71 @@ void logSpeed(tCarElt* car, tSituation *s) {
     }
 }
 
-static void endStatistics(tCarElt* car, tSituation *s)
+int getMacroSegment(int segId) {
+    if (segId < 40) return 0;
+    if (segId < 100) return 1;
+    if (segId < 175) return 2;
+    if (segId < 235) return 3;
+    if (segId < 310) return 4;
+    if (segId < 390) return 5;
+    if (segId < 500) return 6;
+    if (segId < 540) return 7;
+	if (segId < 604) return 8;
+    return 9;
+}
+
+static int lastMacroSegment = -1;
+static double segmentStartTime = 0;
+static int lastLap = -1;
+
+void logSegmentPosition(tCarElt *car, tSituation *s)
+{
+	int segId = car->_trkPos.seg->id;
+	int macroSeg = getMacroSegment(segId);
+	int lap = car->_laps;
+
+	// Detect lap change
+	if (lap != lastLap)
+	{
+		lastLap = lap;
+		lastMacroSegment = -1;
+	}
+
+	if (macroSeg != lastMacroSegment)
+	{
+		if (lastMacroSegment != -1)
+		{
+			double timeSpent = s->currentTime - segmentStartTime;
+			writeSegmentTimeToJson(lastMacroSegment, lap, timeSpent);
+		}
+
+		segmentStartTime = s->currentTime;
+		lastMacroSegment = macroSeg;
+	}
+}
+
+void writeSegmentTimeToJson(int segment, int lap, double time) {
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
+
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+
+    std::string fullPath = dataDir + "/segment_times.json";
+
+    std::ofstream outFile(fullPath.c_str(), std::ios_base::app);
+
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"lap\":" << lap << ","
+                << "\"segment\":" << segment << ","
+                << "\"time\":" << time
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+  
+  static void endStatistics(tCarElt* car, tSituation *s)
 {
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
