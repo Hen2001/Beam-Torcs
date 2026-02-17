@@ -1138,6 +1138,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		}
 	}
 	logTrackPosition(car, s); // Here is where the car Logs the driving data
+	logSegmentPosition(car, s);
 	logSpeed(car, s);
 
 #ifndef WIN32
@@ -1162,6 +1163,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
             lapTimes[lapCount++] = car->_lastLapTime;
         }
         endStatistics(car, s);
+		logSegmentPosition(car, s);
     }
 	HCtx[idx]->lap = car->_laps;
 	
