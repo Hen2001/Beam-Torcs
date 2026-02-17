@@ -57,6 +57,7 @@ static void initTrack(int index, tTrack* track, void *carHandle, void **carParmH
 static void drive_mt(int index, tCarElt* car, tSituation *s);
 static void drive_at(int index, tCarElt* car, tSituation *s);
 static void newrace(int index, tCarElt* car, tSituation *s);
+static void endrace(int index, tCarElt* car, tSituation *s);  // Added end race function to log STATS
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
 
 int joyPresent = 0;
@@ -74,6 +75,11 @@ tHumanContext *HCtx[10] = {0};
 static int speedLimiter	= 0;
 static tdble Vtarget;
 
+static double lapTimes[100] = {0};  // stores each lap time
+static int    lapCount = 0;
+
+static double totalSpeed   = 0.0; // Added for logging function
+static int    speedSamples = 0;
 
 typedef struct
 {
@@ -91,6 +97,8 @@ static int currentSKey[256];
 static double lastKeyUpdate = -10.0;
 
 static int	firstTime = 0;
+
+static bool statsWritten = false;
 
 #ifdef _WIN32
 /* should be present in mswindows */
@@ -119,23 +127,15 @@ shutdown(int index)
 
 #include <fstream> // Required for file writing
 
-#include <string>   // Ensure this is at the very top of your human.cpp
+#include <string>   
 #include <iostream>
 
 #include <sys/stat.h> // For mkdir
-
-#include <string>
-#include <iostream>
-#include <fstream>
 #include <libgen.h> // For dirname
-
 #include <unistd.h>
 #include <limits.h>
-
-#include <unistd.h>
 #include <sys/stat.h>
 
-#include <sys/stat.h>  // Add this at the top of your file
 
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
@@ -177,7 +177,8 @@ void logSpeed(tCarElt* car, tSituation *s) {
         return;
     }
     lastPosWriteTime = s->currentTime;
-    
+    totalSpeed += fabs(car->_speed_x);
+    speedSamples++;
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
     
@@ -195,7 +196,7 @@ void logSpeed(tCarElt* car, tSituation *s) {
                 << "\"segment_id\":" << car->_trkPos.seg->id << ","  
 				<< "\"speedX\":" << car->_speed_X << ","
 				<< "\"speedy\":" << car->_speed_Y << ","
-				<< "\"speed?\":" << car->_speed_x << ","
+				<< "\"speedx\":" << car->_speed_x 
 
 
                 << "}," << std::endl;
@@ -266,7 +267,48 @@ void writeSegmentTimeToJson(int segment, int lap, double time) {
         outFile.close();
     }
 }
+  
+  static void endStatistics(tCarElt* car, tSituation *s)
+{
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return;
 
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+    std::string fullPath = dataDir + "/end_statistics.json";
+
+    double avgSpeed   = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+    double avgLapTime = (car->_laps   > 0) ? (s->currentTime / car->_laps) : 0.0;
+
+    std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::trunc);
+    if (!outFile.is_open()) {
+        printf("ERROR: Could not open end_statistics.json for writing\n");
+        return;
+    }
+
+    outFile << "{"
+        << "\"avg_speed_ms\":"   << avgSpeed              << ","
+        << "\"avg_speed_kmh\":"  << avgSpeed * 3.6        << ","
+        << "\"avg_lap_time\":"   << avgLapTime            << ","
+        << "\"best_lap_time\":"  << car->_bestLapTime     << ","
+        << "\"last_lap_time\":"  << car->_lastLapTime     << ","
+        << "\"laps_completed\":" << car->_laps            << ","
+        << "\"total_distance\":" << car->_distRaced       << ","
+        << "\"finish_pos\":"     << car->_pos             << ","
+        << "\"damage\":"         << car->_dammage         << ","
+        << "\"fuel_used\":"      << (car->_tank - car->_fuel) << ","
+        << "\"lap_times\":[";
+
+    for (int i = 0; i < lapCount; i++) {
+        outFile << "{\"lap\":" << (i + 1) << ",\"time\":" << lapTimes[i] << "}";
+        if (i < lapCount - 1) outFile << ",";
+    }
+
+    outFile << "]}" << std::endl;
+
+    outFile.close();
+    printf("Stats Recorded (lap %d).\n", car->_laps);
+}
 /*
  * Function
  *	InitFuncPt
@@ -313,6 +355,7 @@ InitFuncPt(int index, void *pt)
 	itf->rbNewTrack = initTrack;	/* give the robot the track view called */
 	/* for every track change or new race */
 	itf->rbNewRace  = newrace;
+	itf->rbEndRace  = endrace; 
 
 	HmReadPrefs(index);
 
@@ -488,6 +531,7 @@ static void clearDrivingData()
     const char* files[] = {
         "track_pos.json",
         "speed.json",
+		"end_statistics.json",
         // "inputs.json",
         NULL  
     };
@@ -500,9 +544,19 @@ static void clearDrivingData()
 	printf("File Cleared.\n");
 }
 
+static void endrace(int index, tCarElt* car, tSituation *s)
+{
+    endStatistics(car, s);
+}
+
 void newrace(int index, tCarElt* car, tSituation *s)
 {
+	memset(lapTimes, 0, sizeof(lapTimes));
+	lapCount = 0;
+	totalSpeed = 0.0;    
+    speedSamples = 0; 
 	clearDrivingData();
+	statsWritten = false;
 	int idx = index - 1;
 
 	if (HCtx[idx]->MouseControlUsed) {
@@ -1102,6 +1156,13 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 #endif
 
+	// Write stats every lap
+    if (car->_laps != HCtx[idx]->lap) {
+        if (lapCount < 100) {
+            lapTimes[lapCount++] = car->_lastLapTime;
+        }
+        endStatistics(car, s);
+    }
 	HCtx[idx]->lap = car->_laps;
 	
 }
