@@ -42,14 +42,30 @@
 
 std::string chatbotMessage = "Waiting for AI...";
 int telemetryHudEnabled = 1;   // default ON
-
 // --- Segment timing state ---
-static int   seg_lastMacro      = -1;
-static int   seg_lastLap        = -1;
-static double seg_startTime     = 0.0;
-static double seg_lastTime      = 0.0;
-static int   seg_lastFinished   = -1;
+static const char* SEGMENT_NAMES[10] = {
+    "Chicane",        // 0: seg < 40
+    "Back Straight",  // 1: seg < 100
+    "Hairpin",        // 2: seg < 175
+    "Esses",          // 3: seg < 235
+    "Long Right",     // 4: seg < 310
+    "Tunnel",         // 5: seg < 390
+    "Front Straight", // 6: seg < 500
+    "Kink",           // 7: seg < 540
+    "Final Corner",   // 8: seg < 604
+    "Finish"          // 9: remainder
+};
 
+static int    seg_lastMacro     = -1;
+static int    seg_lastLap       = -1;
+static double seg_startTime     = 0.0;
+static int    seg_lastFinished  = -1;
+static double seg_lastTime      = 0.0;
+
+// Per-segment time for the previous lap (index = segment number)
+static double seg_prevLapTimes[10] = {0.0};
+// Per-segment time being accumulated for the current lap
+static double seg_currentLapTimes[10] = {0.0};
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -339,44 +355,63 @@ static int getMacroSegment(int segId) {
 
 void updateTelemetryMessage(tCarElt* car, tSituation* s)
 {
-    char buffer[128];
+    char line1[128];
+    char line2[128];
 
-    int segId    = car->_trkPos.seg->id;
-    int macro    = getMacroSegment(segId);
-    int lap      = car->_laps;
-    double now   = s->currentTime;
+    int segId  = car->_trkPos.seg->id;
+    int macro  = getMacroSegment(segId);
+    int lap    = car->_laps;
+    double now = s->currentTime;
 
-    // Reset on new lap
+    // On lap change: promote current lap times to previous, then reset
     if (lap != seg_lastLap) {
-        seg_lastLap       = lap;
-        seg_lastMacro     = -1;
-        seg_lastFinished  = -1;
+        if (seg_lastLap != -1) {
+            for (int i = 0; i < 10; i++) {
+                if (seg_currentLapTimes[i] > 0.0)
+                    seg_prevLapTimes[i] = seg_currentLapTimes[i];
+            }
+        }
+        memset(seg_currentLapTimes, 0, sizeof(seg_currentLapTimes));
+        seg_lastLap      = lap;
+        seg_lastMacro    = -1;
+        seg_lastFinished = -1;
     }
 
     // Crossed into a new macro segment
     if (macro != seg_lastMacro) {
         if (seg_lastMacro != -1) {
-            seg_lastTime     = now - seg_startTime;
-            seg_lastFinished = seg_lastMacro;
+            seg_lastTime                       = now - seg_startTime;
+            seg_currentLapTimes[seg_lastMacro] = seg_lastTime;
+            seg_lastFinished                   = seg_lastMacro;
         }
         seg_startTime = now;
         seg_lastMacro = macro;
     }
 
     double elapsed = now - seg_startTime;
+    const char* segName = SEGMENT_NAMES[macro];
 
+    // Line 1: current segment and live elapsed time
+    snprintf(line1, sizeof(line1), "%s | %.2fs", segName, elapsed);
+
+    // Line 2: delta vs previous lap for the last completed segment
     if (seg_lastFinished != -1) {
-        snprintf(buffer, sizeof(buffer),
-                 "Seg %d | Elapsed: %.2fs\nPrev seg %d: %.2fs",
-                 macro, elapsed,
-                 seg_lastFinished, seg_lastTime);
+        double prev = seg_prevLapTimes[seg_lastFinished];
+        if (prev > 0.0) {
+            double delta = seg_lastTime - prev;
+            const char* sign = (delta <= 0.0) ? "" : "+";
+            snprintf(line2, sizeof(line2), "Prev: %s %.2fs (%s%.2fs)",
+                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime, sign, delta);
+        } else {
+            // No previous lap data yet for this segment
+            snprintf(line2, sizeof(line2), "Prev: %s %.2fs (no ref)",
+                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime);
+        }
     } else {
-        snprintf(buffer, sizeof(buffer),
-                 "Seg %d | Elapsed: %.2fs",
-                 macro, elapsed);
+        snprintf(line2, sizeof(line2), "Waiting for first split...");
     }
 
-    chatbotMessage = buffer;
+    chatbotMessage = line1 + std::string("\n") + line2;
 }
 
 void drawBitmapText(const char *text, float x, float y)
@@ -392,7 +427,7 @@ void drawChatPanel()
 {
     float left   = 0.0f;
     float bottom = 20.0f;
-    float width  = 280.0f;
+    float width  = 380.0f;
     float height = 55.0f;          // taller to fit two lines
 
     float right  = left + width;
