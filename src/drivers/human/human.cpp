@@ -536,6 +536,7 @@ static void clearDrivingData()
         "track_pos.json",
         "speed.json",
 		"end_statistics.json",
+		"segment_times.json",
         // "inputs.json",
         NULL  
     };
