@@ -66,6 +66,8 @@ static tTrack	*curTrack;
 
 static float color[] = {0.0, 0.0, 1.0, 1.0};
 
+static int prevRemainingLaps = -1;
+
 static tCtrlJoyInfo	*joyInfo = NULL;
 static tCtrlMouseInfo	*mouseInfo = NULL;
 static int		masterPlayer = -1;
@@ -551,6 +553,7 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 
 void newrace(int index, tCarElt* car, tSituation *s)
 {
+	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));
 	lapCount = 0;
 	totalSpeed = 0.0;    
@@ -1157,15 +1160,24 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 #endif
 
-	// Write stats every lap
-    if (car->_laps != HCtx[idx]->lap) {
+    if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
         if (lapCount < 100) {
             lapTimes[lapCount++] = car->_lastLapTime;
         }
         endStatistics(car, s);
 		logSegmentPosition(car, s);
     }
-	HCtx[idx]->lap = car->_laps;
+    if (prevRemainingLaps > 0 && car->_remainingLaps == 0 && !statsWritten) {
+        printf("DEBUG: final lap detected, curLapTime=%.3f\n", car->_curLapTime);
+        if (car->_curLapTime > 0.0 && lapCount < 100) {
+            lapTimes[lapCount++] = car->_curLapTime;
+        }
+        endStatistics(car, s);
+        statsWritten = true;
+    }
+
+    prevRemainingLaps = car->_remainingLaps;
+    HCtx[idx]->lap = car->_laps;
 	
 }
 
