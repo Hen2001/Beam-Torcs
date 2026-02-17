@@ -43,6 +43,13 @@
 std::string chatbotMessage = "Waiting for AI...";
 int telemetryHudEnabled = 1;   // default ON
 
+// --- Segment timing state ---
+static int   seg_lastMacro      = -1;
+static int   seg_lastLap        = -1;
+static double seg_startTime     = 0.0;
+static double seg_lastTime      = 0.0;
+static int   seg_lastFinished   = -1;
+
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -317,22 +324,60 @@ void setTelemetryHud(int enabled)
     GfParmWriteFile(NULL, grHandle, "Graph");
 }
 
+static int getMacroSegment(int segId) {
+    if (segId < 40)  return 0;
+    if (segId < 100) return 1;
+    if (segId < 175) return 2;
+    if (segId < 235) return 3;
+    if (segId < 310) return 4;
+    if (segId < 390) return 5;
+    if (segId < 500) return 6;
+    if (segId < 540) return 7;
+    if (segId < 604) return 8;
+    return 9;
+}
+
 void updateTelemetryMessage(tCarElt* car, tSituation* s)
 {
-    char buffer[256];
+    char buffer[128];
 
-    float speed = car->_speed_x * 3.6f;   // km/h
-    float posX  = car->_pos_X;
-    float posY  = car->_pos_Y;
-    float steer = car->_steerCmd;
+    int segId    = car->_trkPos.seg->id;
+    int macro    = getMacroSegment(segId);
+    int lap      = car->_laps;
+    double now   = s->currentTime;
 
-    snprintf(buffer, sizeof(buffer),
-             "Speed: %.1f km/h\nX: %.2f\nY: %.2f\nSteer: %.2f",
-             speed, posX, posY, steer);
+    // Reset on new lap
+    if (lap != seg_lastLap) {
+        seg_lastLap       = lap;
+        seg_lastMacro     = -1;
+        seg_lastFinished  = -1;
+    }
+
+    // Crossed into a new macro segment
+    if (macro != seg_lastMacro) {
+        if (seg_lastMacro != -1) {
+            seg_lastTime     = now - seg_startTime;
+            seg_lastFinished = seg_lastMacro;
+        }
+        seg_startTime = now;
+        seg_lastMacro = macro;
+    }
+
+    double elapsed = now - seg_startTime;
+
+    if (seg_lastFinished != -1) {
+        snprintf(buffer, sizeof(buffer),
+                 "Seg %d | Elapsed: %.2fs\nPrev seg %d: %.2fs",
+                 macro, elapsed,
+                 seg_lastFinished, seg_lastTime);
+    } else {
+        snprintf(buffer, sizeof(buffer),
+                 "Seg %d | Elapsed: %.2fs",
+                 macro, elapsed);
+    }
 
     chatbotMessage = buffer;
 }
-
 
 void drawBitmapText(const char *text, float x, float y)
 {
@@ -347,17 +392,15 @@ void drawChatPanel()
 {
     float left   = 0.0f;
     float bottom = 20.0f;
-    float width  = 260.0f;
-    float height = 45.0f;
+    float width  = 280.0f;
+    float height = 55.0f;          // taller to fit two lines
 
     float right  = left + width;
     float top    = bottom + height;
 
-    // Enable blending for transparency
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // ---- Outer Border ----
     glColor4f(0.2f, 0.2f, 0.2f, 0.5f);
     glBegin(GL_QUADS);
         glVertex2f(left - 2,  bottom - 2);
@@ -366,7 +409,6 @@ void drawChatPanel()
         glVertex2f(left - 2,  top + 2);
     glEnd();
 
-    // ---- Inner Panel ----
     glColor4f(0.0f, 0.0f, 0.0f, 0.35f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
@@ -377,9 +419,17 @@ void drawChatPanel()
 
     glDisable(GL_BLEND);
 
-    // ---- Text ----
     glColor3f(1.0f, 1.0f, 1.0f);
-    drawBitmapText(chatbotMessage.c_str(), left + 15, bottom + height - 25);
+
+    // Split chatbotMessage on \n and draw each line separately
+    std::string msg = chatbotMessage;
+    size_t nl = msg.find('\n');
+    if (nl != std::string::npos) {
+        drawBitmapText(msg.substr(0, nl).c_str(),  left + 8, bottom + height - 18);
+        drawBitmapText(msg.substr(nl + 1).c_str(), left + 8, bottom + height - 34);
+    } else {
+        drawBitmapText(msg.c_str(), left + 8, bottom + height - 18);
+    }
 }
 
 
