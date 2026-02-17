@@ -346,7 +346,7 @@ void drawBitmapText(const char *text, float x, float y)
 void drawChatPanel()
 {
     float left   = 0.0f;
-    float bottom = 20.0f;
+    float bottom = 10.0f;
     float width  = 260.0f;
     float height = 45.0f;
 
