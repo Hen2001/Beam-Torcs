@@ -41,6 +41,7 @@
 #include <string>
 
 std::string chatbotMessage = "Waiting for AI...";
+int telemetryHudEnabled = 1;   // default ON
 
 
 cGrScreen::cGrScreen(int myid)
@@ -303,6 +304,19 @@ void cGrScreen::camDraw(tSituation *s)
 	STOP_PROFILE("grDrawScene*");
 }
 
+void setTelemetryHud(int enabled)
+{
+    telemetryHudEnabled = enabled;
+
+    GfParmSetNum(grHandle,
+                 GR_SCT_GRAPHIC,
+                 "TelemetryHUD",
+                 NULL,
+                 (tdble)enabled);
+
+    GfParmWriteFile(NULL, grHandle, "Graph");
+}
+
 void updateTelemetryMessage(tCarElt* car, tSituation* s)
 {
     char buffer[256];
@@ -456,8 +470,11 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
-	updateTelemetryMessage(curCar, s);
-	drawChatPanel();
+	if (telemetryHudEnabled) {
+    	updateTelemetryMessage(curCar, s);
+    	drawChatPanel();
+	}
+
 	TRACE_GL("cGrScreen::update display boards");
 	
 	STOP_PROFILE("grDisp**");
@@ -522,6 +539,13 @@ void cGrScreen::loadParams(tSituation *s)
 	curCam->loadDefaults(buf);
 	drawCurrent = curCam->getDrawCurrent();
 	board->loadDefaults(curCar);
+	telemetryHudEnabled =
+    (int)GfParmGetNum(grHandle,
+                      GR_SCT_GRAPHIC,
+                      "TelemetryHUD",
+                      NULL,
+                      1);
+
 }
 
 
