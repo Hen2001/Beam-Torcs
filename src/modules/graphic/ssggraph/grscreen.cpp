@@ -44,16 +44,15 @@ std::string chatbotMessage = "Waiting for AI...";
 int telemetryHudEnabled = 1;   // default ON
 // --- Segment timing state ---
 static const char* SEGMENT_NAMES[10] = {
-    "Chicane",        // 0: seg < 40
-    "Back Straight",  // 1: seg < 100
-    "Hairpin",        // 2: seg < 175
-    "Esses",          // 3: seg < 235
-    "Long Right",     // 4: seg < 310
-    "Tunnel",         // 5: seg < 390
-    "Front Straight", // 6: seg < 500
+    "First Straight",        // 0: seg < 40
+    "Hairpin",  // 1: seg < 100
+    "Corner 2",        // 2: seg < 175
+    "Corner 3",          // 3: seg < 235
+    "Long Left",     // 4: seg < 310
+    "Back Straight",         // 5: seg < 390
+    "The Corkscrew", // 6: seg < 500
     "Kink",           // 7: seg < 540
-    "Final Corner",   // 8: seg < 604
-    "Finish"          // 9: remainder
+    "Final Straight",   // 8: seg < 605
 };
 
 static int    seg_lastMacro     = -1;
@@ -349,7 +348,7 @@ static int getMacroSegment(int segId) {
     if (segId < 390) return 5;
     if (segId < 500) return 6;
     if (segId < 540) return 7;
-    if (segId < 604) return 8;
+    if (segId < 605) return 8;
     return 9;
 }
 
