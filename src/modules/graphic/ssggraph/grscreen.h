@@ -23,7 +23,12 @@
 #include <car.h>
 #include "grcam.h"
 #include "grboard.h"
+#include <string>
+extern std::string chatbotMessage;
+extern int telemetryHudEnabled;
 
+void setTelemetryHud(int enabled);
+void updateTelemetryMessage(tCarElt* car, tSituation* s);
 class cGrScreen {
 	protected:
 		int id;

@@ -58,6 +58,7 @@ static void drive_mt(int index, tCarElt* car, tSituation *s);
 static void drive_at(int index, tCarElt* car, tSituation *s);
 static void newrace(int index, tCarElt* car, tSituation *s);
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
+extern int telemetryHudEnabled;
 
 int joyPresent = 0;
 
