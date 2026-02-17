@@ -35,8 +35,11 @@
 #include "grcar.h"
 #include "grboard.h"
 #include "grcarlight.h"
-
+#include <tgfclient.h>
 #include "grscreen.h"
+#include <GL/glut.h>
+extern char chatbotMessage[512];
+
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -298,6 +301,59 @@ void cGrScreen::camDraw(tSituation *s)
 	STOP_PROFILE("grDrawScene*");
 }
 
+extern char chatbotMessage[512];
+
+void drawBitmapText(const char *text, float x, float y)
+{
+    glRasterPos2f(x, y);
+    while (*text) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_18, *text);
+        text++;
+    }
+}
+
+void drawChatPanel()
+{
+    float left   = 20.0f;
+    float bottom = 20.0f;
+    float width  = 380.0f;
+    float height = 80.0f;
+
+    float right  = left + width;
+    float top    = bottom + height;
+
+    // Enable blending for transparency
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // ---- Outer Border ----
+    glColor4f(0.2f, 0.2f, 0.2f, 0.5f);
+    glBegin(GL_QUADS);
+        glVertex2f(left - 2,  bottom - 2);
+        glVertex2f(right + 2, bottom - 2);
+        glVertex2f(right + 2, top + 2);
+        glVertex2f(left - 2,  top + 2);
+    glEnd();
+
+    // ---- Inner Panel ----
+    glColor4f(0.0f, 0.0f, 0.0f, 0.35f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    // ---- Text ----
+    glColor3f(1.0f, 1.0f, 1.0f);
+    drawBitmapText(chatbotMessage, left + 15, bottom + height - 25);
+}
+
+
+
+
 
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
@@ -383,6 +439,7 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
+	drawChatPanel();
 	TRACE_GL("cGrScreen::update display boards");
 	
 	STOP_PROFILE("grDisp**");
