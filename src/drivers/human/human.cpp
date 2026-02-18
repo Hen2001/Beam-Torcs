@@ -192,11 +192,6 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
         }
     };
 
-    // TORCS stores _lastLapTime in minutes, convert to seconds
-    auto toSeconds = [](double torcsTime) -> double {
-        return torcsTime * 60.0;
-    };
-
     // ── Read segment_times.json ───────────────────────────────────────────────
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
@@ -254,7 +249,6 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
                        seg + 1, "N/A", target, "---", YELLOW, RESET);
                 continue;
             }
-            // Segment times come from s->currentTime which is already in seconds
             double avg  = segTimes[lap][seg] / segCounts[lap][seg];
             double diff = avg - target;
             double pct  = (target != 0.0) ? ((avg - target) / target * 100.0) : 0.0;
@@ -271,8 +265,7 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
     printf("  %s\n", "-------------------------------------------------------");
 
     for (int i = 0; i < lapCount; i++) {
-        // lapTimes stores _lastLapTime which is in minutes — convert to seconds
-        double t    = toSeconds(lapTimes[i]);
+        double t    = lapTimes[i];   // already in seconds
         double diff = t - TARGET_LAP_TIME;
         double pct  = (TARGET_LAP_TIME != 0.0) ? ((t - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
         const char* col = rating(t, TARGET_LAP_TIME, true);
@@ -282,11 +275,9 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
     }
 
     // ── Overall stats ─────────────────────────────────────────────────────────
-    // totalSpeed accumulates fabs(car->_speed_x) in m/s, convert avg to km/h
     double avgSpeedMs  = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
     double avgSpeedKmh = avgSpeedMs * 3.6;
-    // _bestLapTime is in minutes — convert to seconds
-    double bestLapSec  = toSeconds(car->_bestLapTime);
+    double bestLapSec  = car->_bestLapTime;   // already in seconds
 
     printf("\n%s%s── Overall Stats ──%s\n", BOLD, CYAN, RESET);
     printf("  Laps completed : %d\n", car->_laps);
@@ -377,6 +368,7 @@ void logSpeed(tCarElt* car, tSituation *s) {
 				<< "\"speedx\":" << car->_speed_x 
 
 
+
                 << "}," << std::endl;
         outFile.close();
     }
@@ -450,7 +442,7 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
 static void endStatistics(tCarElt* car, tSituation *s)
 {
-	printPerformanceReport(car, s);
+    printPerformanceReport(car, s);
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
 
@@ -458,8 +450,14 @@ static void endStatistics(tCarElt* car, tSituation *s)
     mkdir(dataDir.c_str(), 0755);
     std::string fullPath = dataDir + "/end_statistics.json";
 
-    double avgSpeed   = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
-    double avgLapTime = (car->_laps   > 0) ? (s->currentTime / car->_laps) : 0.0;
+    double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+
+    // Compute avgLapTime from actual recorded lap times
+    double avgLapTime = 0.0;
+    if (lapCount > 0) {
+        for (int i = 0; i < lapCount; i++) avgLapTime += lapTimes[i];
+        avgLapTime /= lapCount;
+    }
 
     std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::trunc);
     if (!outFile.is_open()) {
@@ -473,7 +471,7 @@ static void endStatistics(tCarElt* car, tSituation *s)
         << "\"avg_lap_time\":"   << avgLapTime            << ","
         << "\"best_lap_time\":"  << car->_bestLapTime     << ","
         << "\"last_lap_time\":"  << car->_lastLapTime     << ","
-        << "\"laps_completed\":" << car->_laps            << ","
+        << "\"laps_completed\":" << lapCount              << ","
         << "\"total_distance\":" << car->_distRaced       << ","
         << "\"finish_pos\":"     << car->_pos             << ","
         << "\"damage\":"         << car->_dammage         << ","
@@ -486,9 +484,8 @@ static void endStatistics(tCarElt* car, tSituation *s)
     }
 
     outFile << "]}" << std::endl;
-
     outFile.close();
-    printf("Stats Recorded (lap %d).\n", car->_laps);
+    printf("Stats Recorded (%d laps).\n", lapCount);
 }
 /*
  * Function
@@ -725,10 +722,12 @@ static void clearDrivingData()
     }
 	printf("File Cleared.\n");
 }
-
 static void endrace(int index, tCarElt* car, tSituation *s)
 {
-    endStatistics(car, s);
+    if (!statsWritten) {
+        endStatistics(car, s);
+        statsWritten = true;
+    }
 }
 
 void newrace(int index, tCarElt* car, tSituation *s)
@@ -1340,12 +1339,16 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 #endif
 
-    if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
+if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
         if (lapCount < 100) {
             lapTimes[lapCount++] = car->_lastLapTime;
         }
         endStatistics(car, s);
-		logSegmentPosition(car, s);
+        logSegmentPosition(car, s);
+        // If this lap completion also consumed the last remaining lap, mark stats as written
+        if (car->_remainingLaps == 0) {
+            statsWritten = true;
+        }
     }
     if (prevRemainingLaps > 0 && car->_remainingLaps == 0 && !statsWritten) {
         printf("DEBUG: final lap detected, curLapTime=%.3f\n", car->_curLapTime);
