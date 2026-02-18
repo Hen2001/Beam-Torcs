@@ -55,6 +55,9 @@ typedef struct HumanContext
 	tControlCmd	*CmdControl;
 	int		MouseControlUsed;
 	int		lightCmd;
+	int endScreenState;
+	double endScreenStartTime; 
+
 } tHumanContext;
 
 

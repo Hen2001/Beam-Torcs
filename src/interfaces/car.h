@@ -464,6 +464,7 @@ typedef struct CarElt
     struct CarElt	*next;
     int         RESTART;
     int         RESET;    
+    float _msgTime;
 } tCarElt;
 
 

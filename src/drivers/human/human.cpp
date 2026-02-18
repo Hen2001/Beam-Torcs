@@ -59,6 +59,8 @@ static void drive_at(int index, tCarElt* car, tSituation *s);
 static void newrace(int index, tCarElt* car, tSituation *s);
 static void endrace(int index, tCarElt* car, tSituation *s);  // Added end race function to log STATS
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
+int endScreenState;        // 0 = race ongoing, 1 = pre-end screen, 2 = TORCS end panel
+double endScreenStartTime; // when the pre-end screen started
 
 int joyPresent = 0;
 
@@ -725,11 +727,19 @@ static void clearDrivingData()
 }
 static void endrace(int index, tCarElt* car, tSituation *s)
 {
+    int idx = index - 1;
+
     if (!statsWritten) {
-        endStatistics(car, s);
+        endStatistics(car, s);  // keeps your JSON stats
+
+        // Show pre-end screen first
+        HCtx[idx]->endScreenState = 1;
+        HCtx[idx]->endScreenStartTime = s->currentTime;
+
         statsWritten = true;
     }
 }
+
 
 void newrace(int index, tCarElt* car, tSituation *s)
 {
@@ -737,10 +747,13 @@ void newrace(int index, tCarElt* car, tSituation *s)
 	memset(lapTimes, 0, sizeof(lapTimes));
 	lapCount = 0;
 	totalSpeed = 0.0;    
+	car->_msgTime = 0.0f;
     speedSamples = 0; 
 	clearDrivingData();
 	statsWritten = false;
 	int idx = index - 1;
+	HCtx[idx]->endScreenState = 0;      // normal race
+	HCtx[idx]->endScreenStartTime = 0.0;
 
 	if (HCtx[idx]->MouseControlUsed) {
 		GfctrlMouseCenter();
@@ -867,6 +880,38 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	tdble rightSteer;
 	int scrw, scrh, dummy;
 	int idx = index - 1;
+	// Pre-end screen display
+if (HCtx[idx] && HCtx[idx]->endScreenState == 1)
+{
+    // Line 0: Header
+    snprintf(car->_msgCmd[0], sizeof(car->_msgCmd[0]), "Race Complete!");
+    
+    // Line 1: Laps and best lap
+    double bestLap = (lapCount > 0) ? lapTimes[0] : 0.0;
+    for (int i = 1; i < lapCount; i++) if (lapTimes[i] < bestLap) bestLap = lapTimes[i];
+    snprintf(car->_msgCmd[1], sizeof(car->_msgCmd[1]), 
+             "Laps: %d  Best Lap: %.2f s", lapCount, bestLap);
+
+    // Line 2: Average speed
+    double avgSpeedKmh = (speedSamples > 0) ? (totalSpeed / speedSamples * 3.6) : 0.0;
+    snprintf(car->_msgCmd[2], sizeof(car->_msgCmd[2]), "Average Speed: %.1f km/h", avgSpeedKmh);
+
+    // Set color (cyan)
+    for (int i = 0; i < 3; i++) {
+        car->_msgColorCmd[i*4+0] = 0.0f;
+        car->_msgColorCmd[i*4+1] = 1.0f;
+        car->_msgColorCmd[i*4+2] = 1.0f;
+        car->_msgColorCmd[i*4+3] = 1.0f;
+    }
+
+    car->_msgTime = 5.0; // display for 5 seconds
+    // After 5 seconds, go to TORCS end panel
+    if (s->currentTime - HCtx[idx]->endScreenStartTime > 5.0) {
+        HCtx[idx]->endScreenState = 2;
+    }
+    return; // skip the rest of driving logic
+}
+
 	tControlCmd	*cmd = HCtx[idx]->CmdControl;
 	const int BUFSIZE = 1024;
 	char sstring[BUFSIZE];
