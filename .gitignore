@@ -69,4 +69,6 @@ Make-config
 src/doc/torcsdoc.conf
 .torcs.rc
 .torcs.rc
+.venv
+venv
 Make-config
