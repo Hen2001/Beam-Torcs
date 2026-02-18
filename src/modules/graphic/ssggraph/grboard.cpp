@@ -35,8 +35,10 @@
 #include "grutil.h"
 #include <robottools.h>
 #include <tgfclient.h>
-
+#include <string>
 #include "grboard.h"
+extern std::string chatbotMessage;
+void updateTelemetryMessage(tCarElt* car, tSituation* s);
 
 static float grWhite[4] = {1.0, 1.0, 1.0, 1.0};
 static float grRed[4] = {1.0, 0.0, 0.0, 1.0};
@@ -295,8 +297,8 @@ cGrBoard::grDispCarBoard1(tCarElt *car, tSituation *s)
 	glColor4f(0.1, 0.1, 0.1, 0.8);
 	glVertex2f(x-5, y + dy);
 	glVertex2f(x+dx+5, y + dy);
-	glVertex2f(x+dx+5, y-5 - dy2 * 9 /* lines */);
-	glVertex2f(x-5, y-5 - dy2 * 9 /* lines */);
+	glVertex2f(x+dx+5, y-5 - dy2 * 12 /* lines */);
+	glVertex2f(x-5, y-5 - dy2 * 12 /* lines */);
 	glEnd();
 	glDisable(GL_BLEND);
 	
@@ -359,6 +361,9 @@ cGrBoard::grDispCarBoard1(tCarElt *car, tSituation *s)
 	GfuiPrintString("Top Speed:", clr, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
 	snprintf(buf, BUFSIZE, "%d", (int)(car->_topSpeed * 3.6));
 	GfuiPrintString(buf, clr, GFUI_FONT_SMALL_C, x2, y, GFUI_ALIGN_HR_VB);
+	
+
+
 }
 
 void
@@ -373,7 +378,7 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	
 	x = 10;
 	x2 = 110;
-	x3 = 170;
+	x3 = 210;
 	dy = GfuiFontHeight(GFUI_FONT_MEDIUM_C);
 	dy2 = GfuiFontHeight(GFUI_FONT_SMALL_C);
 	
@@ -382,7 +387,7 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	snprintf(buf, BUFSIZE, "%d/%d - %s", car->_pos, s->_ncars, car->_name);
 	dx = GfuiFontWidth(GFUI_FONT_MEDIUM_C, buf);
 	dx = MAX(dx, (x3-x));
-	lines = 7;
+	lines = 10;
 	for (i = 0; i < 4; i++) {
 		if (car->ctrl.msg[i]) {
 			lines++;
@@ -473,6 +478,23 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 			y -= dy;
 		}
 	}
+	updateTelemetryMessage(car, s);
+
+std::string msg = chatbotMessage;
+size_t nl = msg.find('\n');
+
+if (nl != std::string::npos) {
+    std::string line1 = msg.substr(0, nl);
+    std::string line2 = msg.substr(nl + 1);
+
+    GfuiPrintString(line1.c_str(), grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+    y -= dy;
+    GfuiPrintString(line2.c_str(), grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+    y -= dy;
+} else {
+    GfuiPrintString(msg.c_str(), grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+    y -= dy;
+}
 }
 
 void

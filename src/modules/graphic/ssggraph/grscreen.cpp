@@ -554,10 +554,10 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
-	if (telemetryHudEnabled) {
-    	updateTelemetryMessage(curCar, s);
-    	drawChatPanel();
-	}
+	// if (telemetryHudEnabled) {
+    // 	updateTelemetryMessage(curCar, s);
+    // 	drawChatPanel();
+	// }
 
 	TRACE_GL("cGrScreen::update display boards");
 	
