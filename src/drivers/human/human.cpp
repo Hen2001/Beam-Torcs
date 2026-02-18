@@ -110,22 +110,7 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 }
 #endif
 
-static void
-shutdown(int index)
-{
-	int	idx = index - 1;
 
-	free (HCtx[idx]);
-
-	if (firstTime) {
-		GfParmReleaseHandle(PrefHdle);
-		GfctrlJoyRelease(joyInfo);
-		GfctrlMouseRelease(mouseInfo);
-		GfuiKeyEventRegisterCurrent(NULL);
-		GfuiSKeyEventRegisterCurrent(NULL);
-		firstTime = 0;
-	}
-}
 
 #include <fstream> // Required for file writing
 
@@ -138,7 +123,7 @@ shutdown(int index)
 #include <limits.h>
 #include <sys/stat.h>
 
-static void printPerformanceReport(tCarElt* car, tSituation *s)
+static void printPerformanceReport()
 {
     // Target values
     static const double SEGMENT_TARGETS[9] = {
@@ -265,7 +250,7 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
     printf("  %s\n", "-------------------------------------------------------");
 
     for (int i = 0; i < lapCount; i++) {
-        double t    = lapTimes[i];   // already in seconds
+        double t    = lapTimes[i];
         double diff = t - TARGET_LAP_TIME;
         double pct  = (TARGET_LAP_TIME != 0.0) ? ((t - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
         const char* col = rating(t, TARGET_LAP_TIME, true);
@@ -277,11 +262,11 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
     // ── Overall stats ─────────────────────────────────────────────────────────
     double avgSpeedMs  = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
     double avgSpeedKmh = avgSpeedMs * 3.6;
-    double bestLapSec  = car->_bestLapTime;   // already in seconds
 
-    printf("\n%s%s── Overall Stats ──%s\n", BOLD, CYAN, RESET);
-    printf("  Laps completed : %d\n", car->_laps);
-    printf("  Damage         : %d\n", car->_dammage);
+    // Compute best lap from recorded lap times
+    double bestLapSec = (lapCount > 0) ? lapTimes[0] : 0.0;
+    for (int i = 1; i < lapCount; i++)
+        if (lapTimes[i] < bestLapSec) bestLapSec = lapTimes[i];
 
     {
         double diff = avgSpeedKmh - TARGET_AVG_SPEED;
@@ -305,7 +290,22 @@ static void printPerformanceReport(tCarElt* car, tSituation *s)
            GREEN, RESET, YELLOW, RESET, WARN_PCT, RED, RESET, WARN_PCT);
     printf("%s%s══════════════════════════════════════════════════%s\n\n", BOLD, CYAN, RESET);
 }
+static void shutdown(int index)
+{
+	printPerformanceReport();
+	int	idx = index - 1;
 
+	free (HCtx[idx]);
+
+	if (firstTime) {
+		GfParmReleaseHandle(PrefHdle);
+		GfctrlJoyRelease(joyInfo);
+		GfctrlMouseRelease(mouseInfo);
+		GfuiKeyEventRegisterCurrent(NULL);
+		GfuiSKeyEventRegisterCurrent(NULL);
+		firstTime = 0;
+	}
+}
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
     
@@ -442,7 +442,8 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
 static void endStatistics(tCarElt* car, tSituation *s)
 {
-    printPerformanceReport(car, s);
+
+
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
 
