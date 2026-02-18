@@ -27,6 +27,8 @@ libtool
 ltmain.sh
 stamp-h1
 ar-lib
+.venv
+venv
 export
 
 # --- Source Specific Ignores ---
