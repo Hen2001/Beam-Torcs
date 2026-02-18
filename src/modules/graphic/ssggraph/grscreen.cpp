@@ -35,8 +35,36 @@
 #include "grcar.h"
 #include "grboard.h"
 #include "grcarlight.h"
-
+#include <tgfclient.h>
 #include "grscreen.h"
+#include <GL/glut.h>
+#include <string>
+
+std::string chatbotMessage = "Waiting for AI...";
+int telemetryHudEnabled = 1;   // default ON
+// --- Segment timing state ---
+static const char* SEGMENT_NAMES[10] = {
+    "First Straight",        // 0: seg < 40
+    "Hairpin",  // 1: seg < 100
+    "Corner 2",        // 2: seg < 175
+    "Corner 3",          // 3: seg < 235
+    "Long Left",     // 4: seg < 310
+    "Back Straight",         // 5: seg < 390
+    "The Corkscrew", // 6: seg < 500
+    "Kink",           // 7: seg < 540
+    "Final Straight",   // 8: seg < 605
+};
+
+static int    seg_lastMacro     = -1;
+static int    seg_lastLap       = -1;
+static double seg_startTime     = 0.0;
+static int    seg_lastFinished  = -1;
+static double seg_lastTime      = 0.0;
+
+// Per-segment time for the previous lap (index = segment number)
+static double seg_prevLapTimes[10] = {0.0};
+// Per-segment time being accumulated for the current lap
+static double seg_currentLapTimes[10] = {0.0};
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -298,6 +326,149 @@ void cGrScreen::camDraw(tSituation *s)
 	STOP_PROFILE("grDrawScene*");
 }
 
+void setTelemetryHud(int enabled)
+{
+    telemetryHudEnabled = enabled;
+
+    GfParmSetNum(grHandle,
+                 GR_SCT_GRAPHIC,
+                 "TelemetryHUD",
+                 NULL,
+                 (tdble)enabled);
+
+    GfParmWriteFile(NULL, grHandle, "Graph");
+}
+
+static int getMacroSegment(int segId) {
+    if (segId < 40)  return 0;
+    if (segId < 100) return 1;
+    if (segId < 175) return 2;
+    if (segId < 235) return 3;
+    if (segId < 310) return 4;
+    if (segId < 390) return 5;
+    if (segId < 500) return 6;
+    if (segId < 540) return 7;
+    if (segId < 605) return 8;
+    return 9;
+}
+
+void updateTelemetryMessage(tCarElt* car, tSituation* s)
+{
+    char line1[128];
+    char line2[128];
+
+    int segId  = car->_trkPos.seg->id;
+    int macro  = getMacroSegment(segId);
+    int lap    = car->_laps;
+    double now = s->currentTime;
+
+    // On lap change: promote current lap times to previous, then reset
+    if (lap != seg_lastLap) {
+        if (seg_lastLap != -1) {
+            for (int i = 0; i < 10; i++) {
+                if (seg_currentLapTimes[i] > 0.0)
+                    seg_prevLapTimes[i] = seg_currentLapTimes[i];
+            }
+        }
+        memset(seg_currentLapTimes, 0, sizeof(seg_currentLapTimes));
+        seg_lastLap      = lap;
+        seg_lastMacro    = -1;
+        seg_lastFinished = -1;
+    }
+
+    // Crossed into a new macro segment
+    if (macro != seg_lastMacro) {
+        if (seg_lastMacro != -1) {
+            seg_lastTime                       = now - seg_startTime;
+            seg_currentLapTimes[seg_lastMacro] = seg_lastTime;
+            seg_lastFinished                   = seg_lastMacro;
+        }
+        seg_startTime = now;
+        seg_lastMacro = macro;
+    }
+
+    double elapsed = now - seg_startTime;
+    const char* segName = SEGMENT_NAMES[macro];
+
+    // Line 1: current segment and live elapsed time
+    snprintf(line1, sizeof(line1), "%s | %.2fs", segName, elapsed);
+
+    // Line 2: delta vs previous lap for the last completed segment
+    if (seg_lastFinished != -1) {
+        double prev = seg_prevLapTimes[seg_lastFinished];
+        if (prev > 0.0) {
+            double delta = seg_lastTime - prev;
+            const char* sign = (delta <= 0.0) ? "" : "+";
+            snprintf(line2, sizeof(line2), "Prev: %s %.2fs (%s%.2fs)",
+                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime, sign, delta);
+        } else {
+            // No previous lap data yet for this segment
+            snprintf(line2, sizeof(line2), "Prev: %s %.2fs (no ref)",
+                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime);
+        }
+    } else {
+        snprintf(line2, sizeof(line2), "Waiting for first split...");
+    }
+
+    chatbotMessage = line1 + std::string("\n") + line2;
+}
+
+void drawBitmapText(const char *text, float x, float y)
+{
+    glRasterPos2f(x, y);
+    while (*text) {
+        glutBitmapCharacter(GLUT_BITMAP_HELVETICA_12, *text);
+        text++;
+    }
+}
+
+void drawChatPanel()
+{
+    float left   = 0.0f;
+    float bottom = 20.0f;
+    float width  = 380.0f;
+    float height = 55.0f;          // taller to fit two lines
+
+    float right  = left + width;
+    float top    = bottom + height;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    glColor4f(0.2f, 0.2f, 0.2f, 0.5f);
+    glBegin(GL_QUADS);
+        glVertex2f(left - 2,  bottom - 2);
+        glVertex2f(right + 2, bottom - 2);
+        glVertex2f(right + 2, top + 2);
+        glVertex2f(left - 2,  top + 2);
+    glEnd();
+
+    glColor4f(0.0f, 0.0f, 0.0f, 0.35f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    glColor3f(1.0f, 1.0f, 1.0f);
+
+    // Split chatbotMessage on \n and draw each line separately
+    std::string msg = chatbotMessage;
+    size_t nl = msg.find('\n');
+    if (nl != std::string::npos) {
+        drawBitmapText(msg.substr(0, nl).c_str(),  left + 8, bottom + height - 18);
+        drawBitmapText(msg.substr(nl + 1).c_str(), left + 8, bottom + height - 34);
+    } else {
+        drawBitmapText(msg.c_str(), left + 8, bottom + height - 18);
+    }
+}
+
+
+
+
 
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
@@ -383,6 +554,11 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
+	if (telemetryHudEnabled) {
+    	updateTelemetryMessage(curCar, s);
+    	drawChatPanel();
+	}
+
 	TRACE_GL("cGrScreen::update display boards");
 	
 	STOP_PROFILE("grDisp**");
@@ -447,6 +623,13 @@ void cGrScreen::loadParams(tSituation *s)
 	curCam->loadDefaults(buf);
 	drawCurrent = curCam->getDrawCurrent();
 	board->loadDefaults(curCar);
+	telemetryHudEnabled =
+    (int)GfParmGetNum(grHandle,
+                      GR_SCT_GRAPHIC,
+                      "TelemetryHUD",
+                      NULL,
+                      1);
+
 }
 
 

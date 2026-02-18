@@ -20,11 +20,18 @@
 
 #include "berniw.h"
 
+#include <fstream>
+#include <string>
+#include <iostream>
+#include <sys/stat.h>
+#include <cmath>
+
 
 // Function prototypes.
 static void initTrack(int index, tTrack* track, void *carHandle, void **carParmHandle, tSituation * situation);
 static void drive(int index, tCarElt* car, tSituation *situation);
 static void newRace(int index, tCarElt* car, tSituation *situation);
+static void endrace(int index, tCarElt* car, tSituation *s);   // Added end race function to log STATS
 static int  InitFuncPt(int index, void *pt);
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
 static void shutdown(int index);
@@ -40,30 +47,247 @@ static const char* botdesc[BOTS] = {
 	"tita 6", "tita 7", "tita 8", "tita 9", "tita 10"
 };
 
-// Module entry point.
+// ── Logging state ─────────────────────────────────────────────────────────────
+
+static double lapTimes[100]  = {0};
+static int    lapCount       = 0;
+
+static double totalSpeed     = 0.0;
+static int    speedSamples   = 0;
+
+static int    prevRemainingLaps = -1;
+static bool   statsWritten      = false;
+
+static int    lastMacroSegment  = -1;
+static double segmentStartTime  = 0.0;
+static int    lastLap           = -1;
+
+static int    titaPrevLap[BOTS] = {0};   // per-bot previous lap tracker
+
+// ── Logging helpers ───────────────────────────────────────────────────────────
+
+static std::string getTitaDataDir()
+{
+    const char* homeDir = getenv("HOME");
+    if (!homeDir) return "";
+    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+    mkdir(dataDir.c_str(), 0755);
+    return dataDir;
+}
+
+void titaLogTrackPosition(tCarElt* car, tSituation *s)
+{
+    static double lastPosWriteTime = 0.0;
+    if (s->currentTime - lastPosWriteTime < 1.0) return;
+    lastPosWriteTime = s->currentTime;
+
+    std::string dataDir = getTitaDataDir();
+    if (dataDir.empty()) return;
+
+    std::ofstream outFile;
+    outFile.open((dataDir + "/tita_track_pos.json").c_str(), std::ios_base::app);
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"time\":"       << s->currentTime            << ","
+                << "\"pos_x\":"      << car->_pos_X               << ","
+                << "\"pos_y\":"      << car->_pos_Y               << ","
+                << "\"track_pos\":"  << car->_trkPos.toMiddle     << ","
+                << "\"segment_id\":" << car->_trkPos.seg->id      << ","
+                << "\"to_start\":"   << car->_trkPos.toStart      << ","
+                << "\"lap\":"        << car->_laps
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+
+void titaLogSpeed(tCarElt* car, tSituation *s)
+{
+    static double lastSpeedWriteTime = 0.0;
+    if (s->currentTime - lastSpeedWriteTime < 0.5) return;
+    lastSpeedWriteTime = s->currentTime;
+
+    totalSpeed += fabs(car->_speed_x);
+    speedSamples++;
+
+    std::string dataDir = getTitaDataDir();
+    if (dataDir.empty()) return;
+
+    std::ofstream outFile;
+    outFile.open((dataDir + "/tita_speed.json").c_str(), std::ios_base::app);
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"time\":"       << s->currentTime       << ","
+                << "\"segment_id\":" << car->_trkPos.seg->id << ","
+                << "\"speedX\":"     << car->_speed_X        << ","
+                << "\"speedy\":"     << car->_speed_Y        << ","
+                << "\"speedx\":"     << car->_speed_x
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+
+static int getMacroSegment(int segId)
+{
+    if (segId < 40)  return 0;
+    if (segId < 100) return 1;
+    if (segId < 175) return 2;
+    if (segId < 235) return 3;
+    if (segId < 310) return 4;
+    if (segId < 390) return 5;
+    if (segId < 500) return 6;
+    if (segId < 540) return 7;
+    if (segId < 604) return 8;
+    return 9;
+}
+
+static void writeSegmentTimeToJson(int segment, int lap, double time)
+{
+    std::string dataDir = getTitaDataDir();
+    if (dataDir.empty()) return;
+
+    std::ofstream outFile((dataDir + "/tita_segment_times.json").c_str(), std::ios_base::app);
+    if (outFile.is_open()) {
+        outFile << "{"
+                << "\"lap\":"     << lap     << ","
+                << "\"segment\":" << segment << ","
+                << "\"time\":"    << time
+                << "}," << std::endl;
+        outFile.close();
+    }
+}
+
+static void titaLogSegmentPosition(tCarElt *car, tSituation *s)
+{
+    int segId    = car->_trkPos.seg->id;
+    int macroSeg = getMacroSegment(segId);
+    int lap      = car->_laps;
+
+    if (lap != lastLap) {
+        lastLap          = lap;
+        lastMacroSegment = -1;
+    }
+
+    if (macroSeg != lastMacroSegment) {
+        if (lastMacroSegment != -1) {
+            double timeSpent = s->currentTime - segmentStartTime;
+            writeSegmentTimeToJson(lastMacroSegment, lap, timeSpent);
+        }
+        segmentStartTime = s->currentTime;
+        lastMacroSegment = macroSeg;
+    }
+}
+
+static void endStatistics(tCarElt* car, tSituation *s)
+{
+    std::string dataDir = getTitaDataDir();
+    if (dataDir.empty()) return;
+
+    double avgSpeed   = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+    double avgLapTime = (car->_laps   > 0) ? (s->currentTime / car->_laps) : 0.0;
+
+    std::ofstream outFile((dataDir + "/tita_end_statistics.json").c_str(),
+                          std::ios::out | std::ios::trunc);
+    if (!outFile.is_open()) {
+        printf("TITA ERROR: Could not open tita_end_statistics.json for writing\n");
+        return;
+    }
+
+    outFile << "{"
+            << "\"avg_speed_ms\":"   << avgSpeed                  << ","
+            << "\"avg_speed_kmh\":"  << avgSpeed * 3.6            << ","
+            << "\"avg_lap_time\":"   << avgLapTime                << ","
+            << "\"best_lap_time\":"  << car->_bestLapTime         << ","
+            << "\"last_lap_time\":"  << car->_lastLapTime         << ","
+            << "\"laps_completed\":" << car->_laps                << ","
+            << "\"total_distance\":" << car->_distRaced           << ","
+            << "\"finish_pos\":"     << car->_pos                 << ","
+            << "\"damage\":"         << car->_dammage             << ","
+            << "\"fuel_used\":"      << (car->_tank - car->_fuel) << ","
+            << "\"lap_times\":[";
+
+    for (int i = 0; i < lapCount; i++) {
+        outFile << "{\"lap\":" << (i + 1) << ",\"time\":" << lapTimes[i] << "}";
+        if (i < lapCount - 1) outFile << ",";
+    }
+
+    outFile << "]}" << std::endl;
+    outFile.close();
+    printf("TITA Stats Recorded (lap %d).\n", car->_laps);
+}
+
+static void clearDrivingData()
+{
+    std::string dataDir = getTitaDataDir();
+    if (dataDir.empty()) return;
+
+    const char* files[] = {
+        "tita_track_pos.json",
+        "tita_speed.json",
+        "tita_end_statistics.json",
+        "tita_segment_times.json",
+        NULL
+    };
+
+    for (int i = 0; files[i] != NULL; i++) {
+        std::string fullPath = dataDir + "/" + files[i];
+        std::ofstream f(fullPath.c_str(), std::ios::out | std::ios::trunc);
+        f.close();
+    }
+    printf("TITA Files Cleared.\n");
+}
+
+static void handleLapLogging(int index, tCarElt* car, tSituation *s)
+{
+    int idx = index - 1;
+
+    // New lap completed
+    if (car->_laps != titaPrevLap[idx] && car->_laps > 1) {
+        if (lapCount < 100) {
+            lapTimes[lapCount++] = car->_lastLapTime;
+        }
+        endStatistics(car, s);
+        titaLogSegmentPosition(car, s);
+    }
+
+    // Final lap: remaining laps just dropped to 0
+    if (prevRemainingLaps > 0 && car->_remainingLaps == 0 && !statsWritten) {
+        printf("TITA DEBUG: final lap detected, curLapTime=%.3f\n", car->_curLapTime);
+        if (car->_curLapTime > 0.0 && lapCount < 100) {
+            lapTimes[lapCount++] = car->_curLapTime;
+        }
+        endStatistics(car, s);
+        statsWritten = true;
+    }
+
+    prevRemainingLaps = car->_remainingLaps;
+    titaPrevLap[idx]  = car->_laps;
+}
+
+// ── Module entry point ────────────────────────────────────────────────────────
+
 extern "C" int tita(tModInfo *modInfo)
 {
 	for (int i = 0; i < BOTS; i++) {
-		modInfo[i].name = strdup(botname[i]);	// Name of the module (short).
-		modInfo[i].desc = strdup(botdesc[i]);	// Description of the module (can be long).
-		modInfo[i].fctInit = InitFuncPt;		// Init function.
-		modInfo[i].gfId    = ROB_IDENT;			// Supported framework version.
+		modInfo[i].name = strdup(botname[i]);
+		modInfo[i].desc = strdup(botdesc[i]);
+		modInfo[i].fctInit = InitFuncPt;
+		modInfo[i].gfId    = ROB_IDENT;
 		modInfo[i].index   = i+1;
 	}
 	return 0;
 }
 
 
-// Initialize function (callback) pointers for torcs.
 static int InitFuncPt(int index, void *pt)
 {
 	tRobotItf *itf = (tRobotItf *)pt;
 
-	itf->rbNewTrack = initTrack;	// Init new track.
-	itf->rbNewRace  = newRace;		// Init new race.
-	itf->rbDrive    = drive;		// Drive during race.
-	itf->rbShutdown	= shutdown;		// Called for cleanup per driver.
-	itf->rbPitCmd   = pitcmd;		// Pit command.
+	itf->rbNewTrack = initTrack;
+	itf->rbNewRace  = newRace;
+	itf->rbDrive    = drive;
+	itf->rbEndRace  = endrace;      // Added end race function to log STATS
+	itf->rbShutdown	= shutdown;
+	itf->rbPitCmd   = pitcmd;
 	itf->index      = index;
 	return 0;
 }
@@ -73,10 +297,9 @@ static MyCar* mycar[BOTS] = { NULL, NULL, NULL, NULL, NULL, NULL, NULL, NULL, NU
 static OtherCar* ocar = NULL;
 static TrackDesc* myTrackDesc = NULL;
 static double currenttime;
-static const tdble waitToTurn = 1.0; // How long should i wait till i try to turn backwards.
+static const tdble waitToTurn = 1.0;
 
 
-// Release resources when the module gets unloaded.
 static void shutdown(int index) {
 	int i = index - 1;
 	if (mycar[i] != NULL) {
@@ -94,7 +317,6 @@ static void shutdown(int index) {
 }
 
 
-// Initialize track data, called for every selected driver.
 static void initTrack(int index, tTrack* track, void *carHandle, void **carParmHandle, tSituation * situation)
 {
 	if ((myTrackDesc != NULL) && (myTrackDesc->getTorcsTrack() != track)) {
@@ -128,10 +350,8 @@ static void initTrack(int index, tTrack* track, void *carHandle, void **carParmH
 		*carParmHandle = GfParmReadFile(buffer, GFPARM_RMODE_STD);
     }
 
-	// Load and set parameters.
 	float fuel = GfParmGetNum(*carParmHandle, BERNIW_SECT_PRIV, BERNIW_ATT_FUELPERLAP,
 		(char*)NULL, track->length*MyCar::MAX_FUEL_PER_METER);
-	//printf("fuelperlap: %f\n", fuel);
 
 	float fuelmargin = (situation->_raceType == RM_TYPE_RACE) ? 1.0 : 0.0;
 
@@ -140,9 +360,21 @@ static void initTrack(int index, tTrack* track, void *carHandle, void **carParmH
 }
 
 
-// Initialize driver for the race, called for every selected driver.
 static void newRace(int index, tCarElt* car, tSituation *situation)
 {
+	// Reset all logging state at the start of every race
+	prevRemainingLaps = -1;
+	memset(lapTimes, 0, sizeof(lapTimes));
+	lapCount         = 0;
+	totalSpeed       = 0.0;
+	speedSamples     = 0;
+	statsWritten     = false;
+	lastMacroSegment = -1;
+	segmentStartTime = 0.0;
+	lastLap          = -1;
+	memset(titaPrevLap, 0, sizeof(titaPrevLap));
+	clearDrivingData();
+
 	if (ocar != NULL) {
 		delete [] ocar;
 	}
@@ -160,16 +392,21 @@ static void newRace(int index, tCarElt* car, tSituation *situation)
 }
 
 
-// Controls the car.
+static void endrace(int index, tCarElt* car, tSituation *s)
+{
+	endStatistics(car, s);
+}
+
+
 static void drive(int index, tCarElt* car, tSituation *situation)
 {
 	tdble angle;
 	tdble brake;
-	tdble b1;							// Brake value in case we are to fast HERE and NOW.
-	tdble b2;							// Brake value for some brake point in front of us.
-	tdble b3;							// Brake value for control (avoid loosing control).
-	tdble b4;							// Brake value for avoiding high angle of attack.
-	tdble b5;							// Brake for the pit;
+	tdble b1;
+	tdble b2;
+	tdble b3;
+	tdble b4;
+	tdble b5;
 	tdble steer, targetAngle, shiftaccel;
 
 	MyCar* myc = mycar[index-1];
@@ -178,10 +415,8 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 	b1 = b2 = b3 = b4 = b5 = 0.0;
 	shiftaccel = 0.0;
 
-	// Update some values needed.
 	myc->update(myTrackDesc, car, situation);
 
-	// Decide how we want to drive, choose a behaviour.
 	if ( car->_dammage < myc->undamaged/3 && myc->bmode != myc->NORMAL) {
 		myc->loadBehaviour(myc->NORMAL);
 	} else if (car->_dammage > myc->undamaged/3 && car->_dammage < (myc->undamaged*2)/3 && myc->bmode != myc->CAREFUL) {
@@ -190,13 +425,11 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		myc->loadBehaviour(myc->SLOW);
 	}
 
-	// Update the other cars just once.
 	if (currenttime != situation->currentTime) {
 		currenttime = situation->currentTime;
 		for (int i = 0; i < situation->_ncars; i++) ocar[i].update();
 	}
 
-	// Startmode.
 	if (myc->trtime < 5.0 && myc->bmode != myc->START) {
 		myc->loadBehaviour(myc->START);
 		myc->startmode = true;
@@ -206,17 +439,11 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		myc->loadBehaviour(myc->NORMAL);
 	}
 
-	// Compute path according to the situation.
 	mpf->plan(myc->getCurrentSegId(), car, situation, myc, ocar);
 
-	// Clear ctrl structure with zeros and set the current gear.
 	memset(&car->ctrl, 0, sizeof(tCarCtrl));
 	car->_gearCmd = car->_gear;
 
-	// Uncommenting the following line causes pitstop on every lap.
-	//if (!mpf->getPitStop()) mpf->setPitStop(true, myc->getCurrentSegId());
-
-	// Compute fuel consumption.
 	if (myc->getCurrentSegId() >= 0 && myc->getCurrentSegId() < 5 && !myc->fuelchecked) {
 		if (car->race.laps > 0) {
 			myc->fuelperlap = MAX(myc->fuelperlap, (myc->lastfuel+myc->lastpitfuel-car->priv.fuel));
@@ -228,7 +455,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		myc->fuelchecked = false;
 	}
 
-	// Decide if we need a pit stop.
 	if (!mpf->getPitStop() && (car->_remainingLaps-car->_lapsBehindLeader) > 0 && (car->_dammage > myc->MAXDAMMAGE ||
 		(car->priv.fuel < (myc->fuelperlap*(1.0+myc->FUEL_SAFETY_MARGIN)) &&
 		 car->priv.fuel < (car->_remainingLaps-car->_lapsBehindLeader)*myc->fuelperlap)))
@@ -240,23 +466,17 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		car->_raceCmd = RM_CMD_PIT_ASKED;
 	}
 
-	// Steer toward the next target point.
 	targetAngle = atan2(myc->dynpath->getLoc(myc->destpathsegid)->y - car->_pos_Y, myc->dynpath->getLoc(myc->destpathsegid)->x - car->_pos_X);
 	targetAngle -= car->_yaw;
 	NORM_PI_PI(targetAngle);
     steer = targetAngle / car->_steerLock;
 
-	// Steer P (proportional) controller. We add a steer correction proportional to the distance error
-	// to the path.
-	// Steer angle has usual meaning, therefore + is to left (CCW) and - to right (CW).
-	// derror sign is + to right and - to left.
 	if (!mpf->getPitStop()) {
 		steer = steer + MIN(myc->STEER_P_CONTROLLER_MAX, myc->derror*myc->STEER_P_CONTROLLER_GAIN)*myc->getErrorSgn();
 		if (fabs(steer) > 1.0) {
 			steer/=fabs(steer);
 		}
 	} else {
-		// Check if we are almost in the pit to set brake to the max to avoid overrun.
 		tdble dl, dw;
 		RtDistToPit(car, myTrackDesc->getTorcsTrack(), &dl, &dw);
 		if (dl < 1.0f) {
@@ -264,12 +484,9 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		}
 	}
 
-	// Try to control angular velocity with a D (differential) controller.
 	double omega = myc->getSpeed()/myc->dynpath->getRadius(myc->currentpathsegid);
 	steer += myc->STEER_D_CONTROLLER_GAIN*(omega - myc->getCarPtr()->_yaw_rate);
 
-
-	// Brakes.
     tdble brakecoeff = 1.0/(2.0*g*myc->currentseg->getKfriction()*myc->CFRICTION);
     tdble brakespeed, brakedist;
 	tdble lookahead = 0.0;
@@ -300,18 +517,15 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		b1 = (myc->getSpeedSqr() - myc->dynpath->getSpeedsqr(myc->currentpathsegid)) / (myc->getSpeedSqr());
 	}
 
-	// Try to avoid flying.
 	if (myc->getDeltaPitch() > myc->MAXALLOWEDPITCH && myc->getSpeed() > myc->FLYSPEED) {
 		b4 = 1.0;
 	}
 
-	// Check if we are on the way.
 	if (myc->getSpeed() > myc->TURNSPEED && myc->tr_mode == 0) {
 		if (myc->derror > myc->PATHERR) {
 			vec2d *cd = myc->getDir();
 			vec2d *pd = myc->dynpath->getDir(myc->currentpathsegid);
 			float z = cd->x*pd->y - cd->y*pd->x;
-			// If the car points away from the path brake.
 			if (z*myc->getErrorSgn() >= 0.0) {
 				targetAngle = atan2(myc->dynpath->getDir(myc->currentpathsegid)->y, myc->dynpath->getDir(myc->currentpathsegid)->x);
 				targetAngle -= car->_yaw;
@@ -322,7 +536,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		}
 	}
 
-	// Anti wheel locking and brake code.
 	if (b1 > b2) brake = b1; else brake = b2;
 	if (brake < b3) brake = b3;
 	if (brake < b4) {
@@ -341,7 +554,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
     	brake = brake * abs_min;
 	}
 
-	// Reduce brake value to the approximate normal force available on the wheels.
 	float weight = myc->mass*G;
 	float maxForce = weight + myc->ca*myc->MAX_SPEED*myc->MAX_SPEED;
 	float force = weight + myc->ca*myc->getSpeedSqr();
@@ -350,7 +562,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		brake = b5;
 	}
 
-	// Gear changing.
 	if (myc->tr_mode == 0) {
 		if (car->_gear <= 0) {
 			car->_gearCmd =  1;
@@ -371,8 +582,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		}
 	}
 
-
-	// Acceleration / brake execution.
 	tdble cerror, cerrorh;
 	cerrorh = sqrt(car->_speed_x*car->_speed_x + car->_speed_y*car->_speed_y);
 	if (cerrorh > myc->TURNSPEED) {
@@ -396,7 +605,6 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 				if (myc->accel > 0.0) {
 					myc->accel -= myc->ACCELINC;
 				}
-				// TODO: shiftaccel always 0 at the moment...
 				car->_accelCmd = myc->accel = MIN(myc->accel/cerror, shiftaccel/cerror);
 			}
 			tdble slipspeed = myc->querySlipSpeed(car);
@@ -406,13 +614,11 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 		}
 	}
 
-
-	// Check if we are stuck, try to get unstuck.
 	tdble bx = myc->getDir()->x, by = myc->getDir()->y;
 	tdble cx = myc->currentseg->getMiddle()->x - car->_pos_X, cy = myc->currentseg->getMiddle()->y - car->_pos_Y;
 	tdble parallel = (cx*bx + cy*by) / (sqrt(cx*cx + cy*cy)*sqrt(bx*bx + by*by));
 
-	if ((myc->getSpeed() < myc->TURNSPEED) && (parallel < cos(90.0*PI/180.0))  && (mpf->dist2D(myc->getCurrentPos(), myc->dynpath->getLoc(myc->getCurrentSegId())) > myc->TURNTOL)) {
+	if ((myc->getSpeed() < myc->TURNSPEED) && (parallel < cos(90.0*PI/180.0)) && (mpf->dist2D(myc->getCurrentPos(), myc->dynpath->getLoc(myc->getCurrentSegId())) > myc->TURNTOL)) {
 		myc->turnaround += situation->deltaTime;
 	} else myc->turnaround = 0.0;
 	if ((myc->turnaround >= waitToTurn) || (myc->tr_mode >= 1)) {
@@ -457,10 +663,15 @@ static void drive(int index, tCarElt* car, tSituation *situation)
 
 	if (myc->tr_mode == 0) car->_steerCmd = steer;
 	car->_clutchCmd = getClutch(myc, car);
+
+	// ── Per-frame logging (mirrors human.cpp common_drive) ────────────────────
+	titaLogTrackPosition(car, situation);
+	titaLogSegmentPosition(car, situation);
+	titaLogSpeed(car, situation);
+	handleLapLogging(index, car, situation);
 }
 
 
-// Pitstop callback.
 static int pitcmd(int index, tCarElt* car, tSituation *s)
 {
 	MyCar* myc = mycar[index-1];
@@ -477,13 +688,10 @@ static int pitcmd(int index, tCarElt* car, tSituation *s)
 	myc->startmode = true;
 	myc->trtime = 0.0;
 
-	return ROB_PIT_IM; // Return immediately.
+	return ROB_PIT_IM;
 }
 
 
-// Compute the clutch value.
-// Does not work great when braking to 0 and accelerating again...
-// TODO: Improve.
 float getClutch(MyCar* myc, tCarElt* car)
 {
 	if (car->_gear > 1) {
@@ -497,18 +705,15 @@ float getClutch(MyCar* myc, tCarElt* car)
 			myc->clutchtime += (float) RCM_MAX_DT_ROBOTS;
 		}
 
-		//printf("ct: %f, car->_gear: %d, car->_gearCmd: %d, drpm: %f\n", myc->clutchtime, car->_gear, car->_gearCmd, drpm);
 		if (drpm > 0) {
 			float speedr;
 			if (car->_gearCmd == 1) {
-				// Compute corresponding speed to engine rpm.
 				float omega = car->_enginerpmRedLine/car->_gearRatio[car->_gear + car->_gearOffset];
 				float wr = car->_wheelRadius(2);
 				speedr = (myc->CLUTCH_SPEED + MAX(0.0, car->_speed_x))/fabs(wr*omega);
 				float clutchr = MAX(0.0, (1.0 - speedr*2.0*drpm/car->_enginerpmRedLine));
 				return MIN(clutcht, clutchr);
 			} else {
-				// For the reverse gear.
 				myc->clutchtime = 0.0;
 				return 0.0;
 			}

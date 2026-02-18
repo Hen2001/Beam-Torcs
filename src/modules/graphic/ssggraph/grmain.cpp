@@ -52,7 +52,6 @@ float grFps;
 double grCurTime;
 double grDeltaTime;
 int segIndice = 0;
-
 tdble grMaxDammage = 10000.0;
 int grNbCars = 0;
 
