@@ -6,6 +6,7 @@
 *.la
 .libs/
 .deps/
+.venv
 # Ignore hidden .depend files recursively
 .depend
 
@@ -69,4 +70,6 @@ Make-config
 src/doc/torcsdoc.conf
 .torcs.rc
 .torcs.rc
+.venv
+venv
 Make-config
