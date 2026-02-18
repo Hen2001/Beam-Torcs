@@ -49,9 +49,12 @@
 #include <map>
 
 
+
+
 #define DRWD 0
 #define DFWD 1
 #define D4WD 2
+extern tRmInfo *ReInfo;
 
 static void initTrack(int index, tTrack* track, void *carHandle, void **carParmHandle, tSituation *s);
 static void drive_mt(int index, tCarElt* car, tSituation *s);
@@ -489,6 +492,22 @@ static void endStatistics(tCarElt* car, tSituation *s)
     outFile << "]}" << std::endl;
     outFile.close();
     printf("Stats Recorded (%d laps).\n", lapCount);
+	double avgSpeedKmh = avgSpeed * 3.6;
+
+// compute best lap
+	double bestLapSec = (lapCount > 0) ? lapTimes[0] : 0.0;
+	for (int i = 1; i < lapCount; i++)
+    	if (lapTimes[i] < bestLapSec)
+        	bestLapSec = lapTimes[i];
+
+	void *results = ReInfo->results; 
+
+GfParmSetNum(results, "Performance", "BestLap", NULL, bestLapSec);
+GfParmSetNum(results, "Performance", "AvgSpeed", NULL, avgSpeedKmh);
+GfParmSetNum(results, "Performance", "TargetLap", NULL, 70.0);
+GfParmSetNum(results, "Performance", "TargetSpeed", NULL, 176.0);
+
+
 }
 /*
  * Function

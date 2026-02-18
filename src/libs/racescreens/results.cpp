@@ -35,6 +35,16 @@
 #include <robot.h>
 #include <portability.h>
 
+struct PerformanceData
+{
+    double bestLap;
+    double avgSpeedKmh;
+    double targetLap;
+    double targetSpeed;
+};
+
+PerformanceData gPerf;
+
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
 
@@ -314,6 +324,48 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 
 		y -= 15;
 	}
+double bestLap = GfParmGetNum(results, "Performance", "BestLap", NULL, 0);
+double avgSpeed = GfParmGetNum(results, "Performance", "AvgSpeed", NULL, 0);
+double targetLap = GfParmGetNum(results, "Performance", "TargetLap", NULL, 0);
+double targetSpeed = GfParmGetNum(results, "Performance", "TargetSpeed", NULL, 0);
+
+	 y = 140;  // adjust if needed
+
+snprintf(buf, sizeof(buf),
+         "Best Lap: %.2f s (Target %.0f s)",
+         bestLap,
+         targetLap);
+
+
+float myColor[4] = {1.0f, 1.0f, 1.0f, 1.0f}; // white
+
+GfuiLabelCreateEx(rmScrHdle,
+                  buf,
+                  myColor,
+                  GFUI_FONT_MEDIUM_C,
+                  320, y,
+                  GFUI_ALIGN_HC_VB,
+                  0);
+
+
+y -= 20;
+
+snprintf(buf, sizeof(buf),
+         "Average Speed: %.1f km/h (Target %.0f)",
+         avgSpeed,
+         targetSpeed);
+
+
+
+
+GfuiLabelCreateEx(rmScrHdle,
+                  buf,
+                  myColor,
+                  GFUI_FONT_MEDIUM_C,
+                  320, y,
+                  GFUI_ALIGN_HC_VB,
+                  0);
+
 
 	if (start > 0) {
 		RmPrevRace.prevHdle = prevHdle;
