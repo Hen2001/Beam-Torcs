@@ -409,7 +409,7 @@ if (f) {
 
 	std::vector<std::string> lines = wrapText(analysis, 100);
 
-int yPos = 380;   // starting height (move up here)
+int yPos = 350;   // starting height (move up here)
 
 for (size_t i = 0; i < lines.size(); i++) {
     GfuiLabelCreate(rmScrHdle,
