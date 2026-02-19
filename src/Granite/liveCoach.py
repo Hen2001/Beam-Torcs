@@ -56,16 +56,12 @@ def get_coaching(data):
             f"Coach says: \""
         )
         return generate_coaching(prompt)
-
-    # Damage warning - highest priority
-    if damage > 500:
-        return f"Significant damage at level {damage} — protect the car through {seg_name}."
-
+        
     # Off track
     if abs(track_pos) > 7.5:
         return f"Get back on track! You're {abs(track_pos):.1f}m off centre through {seg_name}."
 
-    # Delta-based coaching
+    # Delta coaching - Comparing segments
     if delta != 0.0:
         sign = "+" if delta > 0 else ""
         if delta > 1.5:

@@ -47,7 +47,7 @@
 #include "pref.h"
 #include "human.h"
 #include <map>
-
+#include "AiFeatures.h"
 
 #define DRWD 0
 #define DFWD 1
@@ -281,8 +281,18 @@ if (speedOut.is_open()) {
         trackOut << "\n]" << std::endl;           
         trackOut.close();
     }
+    if (coach) {
+        system("pkill -9 -f liveCoach.py");
+    }
+    if (commentary) {
+        system("pkill -9 -f liveComs.py");
+    }
 	printPerformanceReport();
-	system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log");
+	if (analysis)
+	{
+		system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+	}
+	
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
@@ -794,6 +804,12 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 
 void newrace(int index, tCarElt* car, tSituation *s)
 {
+	if (coach) {
+        system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
+    }
+    if (commentary) {
+        system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+    }
 	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));
 	lapCount = 0;

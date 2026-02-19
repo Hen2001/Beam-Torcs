@@ -23,6 +23,7 @@
     @version	$Id: grscreen.cpp,v 1.22.2.5 2012/06/09 11:44:46 berniw Exp $
 */
 
+
 #include <plib/ssg.h>
 #include <ctime>
 #include <tgfclient.h>
@@ -39,10 +40,12 @@
 #include "grscreen.h"
 #include <GL/glut.h>
 #include <string>
+#include "AiFeatures.h"
 
 std::string chatbotMessage = "Waiting for AI...";
 std::string aiCommentary = "AI Commentary Loading...";
 std::string aiCoaching = "AI Coaching Loading...";
+
 int telemetryHudEnabled = 1;   // default ON
 // --- Segment timing state ---
 static const char* SEGMENT_NAMES[10] = {
@@ -68,8 +71,7 @@ static double seg_prevLapTimes[10] = {0.0};
 // Per-segment time being accumulated for the current lap
 static double seg_currentLapTimes[10] = {0.0};
 
-bool coach = 1;
-bool commentary = 0;
+
 
 cGrScreen::cGrScreen(int myid)
 {
