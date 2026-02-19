@@ -264,12 +264,16 @@ static void printPerformanceReport()
 
 static void shutdown(int index)
 {
-	/// Close speed log 
-    if (speedOut.is_open()) {
-        speedOut.seekp(-2, std::ios_base::cur); 
+	// 1. Close the speed log
+if (speedOut.is_open()) {
+    if (speedOut.tellp() > 3) { 
+        speedOut.seekp(-2, std::ios_base::end); 
         speedOut << "\n]" << std::endl;
-        speedOut.close();
+    } else {
+        speedOut << "]" << std::endl;
     }
+    speedOut.close();
+}
 
     // Close track log 
     if (trackOut.is_open()) {
@@ -278,7 +282,7 @@ static void shutdown(int index)
         trackOut.close();
     }
 	printPerformanceReport();
-	system("sleep 2 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+	system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log");
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
