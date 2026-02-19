@@ -37,7 +37,8 @@
 #include <sys/stat.h>
 #include <unistd.h>
 #include <cstring>
-
+#include <vector>
+#include <string>
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
 
@@ -208,6 +209,69 @@ static void rmChgRaceScreen(void *vprc)
 	GfuiScreenRelease(prevScr);
 }
 
+#include <vector>
+#include <string>
+
+std::string insertKeywordBreaks(const std::string& input)
+{
+    std::string text = input;
+
+    const std::vector<std::string> keywords = {
+        "Speed:",
+        "Specific Coaching Focus:"
+    };
+
+    for (const auto& key : keywords) {
+        size_t pos = 0;
+        while ((pos = text.find(key, pos)) != std::string::npos) {
+            if (pos != 0 && text[pos - 1] != '\n') {
+                text.insert(pos, "\n");
+                pos += 1;
+            }
+            pos += key.length();
+        }
+    }
+
+    return text;
+}
+
+std::vector<std::string> wrapText(const char* text, int maxLineLength)
+{
+    std::vector<std::string> lines;
+
+    std::string processed = insertKeywordBreaks(text);
+
+    size_t start = 0;
+    while (start < processed.length()) {
+
+        size_t end = processed.find('\n', start);
+        std::string segment;
+
+        if (end == std::string::npos) {
+            segment = processed.substr(start);
+            start = processed.length();
+        } else {
+            segment = processed.substr(start, end - start);
+            start = end + 1;
+        }
+
+        while (segment.length() > maxLineLength) {
+            int breakPos = segment.rfind(' ', maxLineLength);
+            if (breakPos == std::string::npos)
+                breakPos = maxLineLength;
+
+            lines.push_back(segment.substr(0, breakPos));
+            segment = segment.substr(breakPos + 1);
+        }
+
+        if (!segment.empty())
+            lines.push_back(segment);
+    }
+
+    return lines;
+}
+
+
 
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 {
@@ -321,7 +385,7 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 	char analysis[2048] = {0};
 const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
 int attempts = 0;
-while (attempts < 30) {   // wait up to ~10 seconds
+while (attempts < 60) {   // wait up to ~10 seconds
     struct stat st;
 	printf("Waiting for analysis... attempt %d\n", attempts);
 
@@ -343,12 +407,21 @@ if (f) {
 }
 
 
-	GfuiLabelCreate(rmScrHdle,
-                analysis,
-                GFUI_FONT_MEDIUM_C,
-                320, 120,   // adjust position
-                GFUI_ALIGN_HC_VB,
-                0);
+	std::vector<std::string> lines = wrapText(analysis, 100);
+
+int yPos = 380;   // starting height (move up here)
+
+for (size_t i = 0; i < lines.size(); i++) {
+    GfuiLabelCreate(rmScrHdle,
+                    lines[i].c_str(),
+                    GFUI_FONT_MEDIUM_C,
+                    320, yPos,
+                    GFUI_ALIGN_HC_VB,
+                    0);
+
+    yPos -= 18;  // spacing between lines
+}
+
 
 	if (start > 0) {
 		RmPrevRace.prevHdle = prevHdle;
