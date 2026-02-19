@@ -2,15 +2,12 @@
 
 import json
 import os
-import io
 import time
 import torch
 import whisper
-import threading
-import numpy as np
 from flask import Flask, request, jsonify, render_template_string
-from transformers import AutoTokenizer, AutoModelForCausalLM
 from flask_socketio import SocketIO, emit
+from transformers import AutoTokenizer, AutoModelForCausalLM
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
@@ -26,7 +23,7 @@ model_name = "ibm-granite/granite-4.0-350m"
 tokenizer  = AutoTokenizer.from_pretrained(model_name)
 granite    = AutoModelForCausalLM.from_pretrained(
     model_name,
-    torch_dtype=torch.float32,
+    dtype=torch.float32,
     device_map="cpu"
 )
 granite.eval()
@@ -93,14 +90,16 @@ def ask_granite(question):
     sentences = response.split(".")
     return ". ".join(sentences[:2]).strip() + "."
 
-# ── Flask app ─────────────────────────────────────────────────────────────────
-app = Flask(__name__)
+# ── Flask + SocketIO ──────────────────────────────────────────────────────────
+app      = Flask(__name__)
+socketio = SocketIO(app, cors_allowed_origins="*")
 
 HTML = """
 <!DOCTYPE html>
 <html>
 <head>
     <title>TORCS Race Engineer</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
     <style>
         * { margin: 0; padding: 0; box-sizing: border-box; }
         body {
@@ -173,6 +172,12 @@ HTML = """
             letter-spacing: 2px;
             margin-bottom: 8px;
         }
+        #keyhint {
+            color: #444;
+            font-size: 0.75em;
+            margin-top: 20px;
+            letter-spacing: 1px;
+        }
     </style>
 </head>
 <body>
@@ -182,33 +187,41 @@ HTML = """
     <div id="transcript"></div>
     <div id="response-label">ENGINEER</div>
     <div id="response-box">Awaiting driver input...</div>
+    <div id="keyhint">PUSH TO TALK: R KEY IN TORCS</div>
 
     <script>
         let mediaRecorder = null;
         let audioChunks   = [];
         let recording     = false;
 
-        async function toggleRecording() {
-            if (!recording) {
-                const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-                mediaRecorder = new MediaRecorder(stream);
-                audioChunks   = [];
+        const socket = io();
 
-                mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-                mediaRecorder.onstop = sendAudio;
-                mediaRecorder.start();
+        socket.on("start_recording", async () => {
+            if (recording) return;
+            console.log("[RaceEngineer] start_recording received");
+            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+            mediaRecorder = new MediaRecorder(stream);
+            audioChunks   = [];
 
-                recording = true;
-                document.getElementById("mic-btn").classList.add("recording");
-                document.getElementById("status").textContent = "RECORDING...";
-            } else {
-                mediaRecorder.stop();
-                mediaRecorder.stream.getTracks().forEach(t => t.stop());
-                recording = false;
-                document.getElementById("mic-btn").classList.remove("recording");
-                document.getElementById("status").textContent = "PROCESSING...";
-            }
-        }
+            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
+            mediaRecorder.onstop = sendAudio;
+            mediaRecorder.start();
+
+            recording = true;
+            document.getElementById("mic-btn").classList.add("recording");
+            document.getElementById("status").textContent = "RECORDING...";
+            console.log("[RaceEngineer] Recording started");
+        });
+
+        socket.on("stop_recording", () => {
+            if (!recording) return;
+            console.log("[RaceEngineer] stop_recording received");
+            mediaRecorder.stop();
+            mediaRecorder.stream.getTracks().forEach(t => t.stop());
+            recording = false;
+            document.getElementById("mic-btn").classList.remove("recording");
+            document.getElementById("status").textContent = "PROCESSING...";
+        });
 
         async function sendAudio() {
             const blob = new Blob(audioChunks, { type: "audio/webm" });
@@ -218,11 +231,10 @@ HTML = """
             const res  = await fetch("/ask", { method: "POST", body: form });
             const data = await res.json();
 
-            document.getElementById("transcript").textContent  = "You: " + data.question;
+            document.getElementById("transcript").textContent   = "You: " + data.question;
             document.getElementById("response-box").textContent = data.response;
             document.getElementById("status").textContent       = "READY";
 
-            // Browser TTS
             const utterance = new SpeechSynthesisUtterance(data.response);
             utterance.rate  = 1.1;
             window.speechSynthesis.speak(utterance);
@@ -236,6 +248,18 @@ HTML = """
 def index():
     return render_template_string(HTML)
 
+@app.route("/start", methods=["POST"])
+def start():
+    print("[RaceEngineer] PTT start received — telling browser to record")
+    socketio.emit("start_recording")
+    return jsonify({"status": "recording"})
+
+@app.route("/stop", methods=["POST"])
+def stop():
+    print("[RaceEngineer] PTT stop received — telling browser to stop and process")
+    socketio.emit("stop_recording")
+    return jsonify({"status": "processing"})
+
 @app.route("/ask", methods=["POST"])
 def ask():
     audio_file = request.files["audio"]
@@ -246,9 +270,12 @@ def ask():
     question = result["text"].strip()
     os.remove(tmp_path)
 
+    if not question:
+        return jsonify({"question": "", "response": "Could not hear anything, please try again."})
+
     response = ask_granite(question)
     return jsonify({"question": question, "response": response})
 
 if __name__ == "__main__":
     print("Race Engineer running at http://localhost:5000")
-    app.run(host="0.0.0.0", port=5000)
+    socketio.run(app, host="0.0.0.0", port=5000)
