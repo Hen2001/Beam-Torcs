@@ -24,6 +24,7 @@
 #include <simuconfig.h>
 #include <soundconfig.h>
 #include <openglconfig.h>
+#include "featuresMenu.h"
 
 static void *optionHandle = NULL;
 
@@ -57,6 +58,13 @@ TorcsOptionOptionInit(void *precMenu)
     GfuiMenuButtonCreate(optionHandle,
 			 "OpenGL", "Configure OpenGL parameters",
 			 OpenGLMenuInit(optionHandle), GfuiScreenActivate);
+
+    GfuiMenuButtonCreate(optionHandle,
+                     "Features",
+                     "Configure extra features",
+                     FeaturesMenuInit(optionHandle),
+                     GfuiScreenActivate);
+
 
     GfuiMenuBackQuitButtonCreate(optionHandle,
 				 "Back",

@@ -44,6 +44,8 @@ std::string insertKeywordBreaks(const std::string& input);
 
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
+static bool responseBot = true;
+static void *featuresScr = NULL;
 
 static void rmPracticeResults(void *prevHdle, tRmInfo *info, int start);
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start);
@@ -69,6 +71,85 @@ static void rmSaveRes(void *vInfo)
 	GfParmCreateDirectory(0, info->results);
 	GfParmWriteFile(0, info->results, "Results");
 	GfuiVisibilitySet(rmScrHdle, rmSaveId, GFUI_INVISIBLE);
+}
+
+static void toggleResponseBot(void *unused)
+{
+    responseBot = !responseBot;
+
+    printf("ResponseBot is now: %s\n", responseBot ? "ON" : "OFF");
+}
+static void rmFeaturesScreen(void *prevHdle)
+{
+    featuresScr = GfuiScreenCreate();
+
+    GfuiScreenAddBgImg(featuresScr, "data/img/splash-result.png");
+    GfuiTitleCreate(featuresScr, "Features", 8);
+
+    // ---- Toggle Button Text ----
+    const char* label = responseBot ?
+        "Granite AI Coach: ON" :
+        "Granite AI Coach: OFF";
+
+    GfuiButtonCreate(featuresScr,
+                     label,
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     320,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     toggleResponseBot,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    // ---- Placeholder Buttons ----
+    GfuiButtonCreate(featuresScr,
+                     "Future Feature 2",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     260,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    GfuiButtonCreate(featuresScr,
+                     "Future Feature 3",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     200,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    // ---- Back Button ----
+    GfuiButtonCreate(featuresScr,
+                     "Back",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     60,
+                     200,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     prevHdle,
+                     GfuiScreenReplace,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    GfuiScreenActivate(featuresScr);
 }
 
 
