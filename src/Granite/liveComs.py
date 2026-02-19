@@ -109,7 +109,7 @@ def generate_commentary(data):
         return random.choice(lines)
 
     # Low speed - once per 60 seconds only
-    if speed < 40:
+    if speed < 50:
         now = time.time()
         if now - last_lowspeed_time >= 60:
             last_lowspeed_time = now
