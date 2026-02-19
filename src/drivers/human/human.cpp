@@ -716,7 +716,6 @@ static void clearDrivingData()
     if (!homeDir) return;
 
     std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-	remove("/home/lewis/.torcs/DrivingData/granite_analysis.txt");
 
     const char* files[] = {
         "track_pos.json",
