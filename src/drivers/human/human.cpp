@@ -293,7 +293,7 @@ static void printPerformanceReport()
 static void shutdown(int index)
 {
 	printPerformanceReport();
-	system("sleep 2 && python3 /home/zackc/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+	system("sleep 2 && python3 /home/lewis/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
@@ -707,6 +707,7 @@ static void clearDrivingData()
     if (!homeDir) return;
 
     std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+	remove("/home/lewis/.torcs/DrivingData/granite_analysis.txt");
 
     const char* files[] = {
         "track_pos.json",

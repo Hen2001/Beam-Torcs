@@ -34,6 +34,9 @@
 #include <robottools.h>
 #include <robot.h>
 #include <portability.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cstring>
 
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
@@ -314,6 +317,38 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 
 		y -= 15;
 	}
+
+	char analysis[2048] = {0};
+const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
+int attempts = 0;
+while (attempts < 30) {   // wait up to ~10 seconds
+    struct stat st;
+	printf("Waiting for analysis... attempt %d\n", attempts);
+
+    if (stat(filepath, &st) == 0 && st.st_size > 0) {
+        break;  // file exists and has content
+    }
+    sleep(1);
+    attempts++;
+}
+printf("Finished waiting. Attempts: %d\n", attempts);
+
+FILE* f = fopen(filepath, "r");
+if (f) {
+    size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+    analysis[bytesRead] = '\0';   // ensure null termination
+    fclose(f);
+} else {
+    strcpy(analysis, "Granite AI Coach analysis unavailable.");
+}
+
+
+	GfuiLabelCreate(rmScrHdle,
+                analysis,
+                GFUI_FONT_MEDIUM_C,
+                320, 120,   // adjust position
+                GFUI_ALIGN_HC_VB,
+                0);
 
 	if (start > 0) {
 		RmPrevRace.prevHdle = prevHdle;
