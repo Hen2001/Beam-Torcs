@@ -119,8 +119,6 @@ with torch.no_grad():
 
 response_tokens = output[0][inputs["input_ids"].shape[1]:]
 response = tokenizer.decode(response_tokens, skip_special_tokens=True).strip()
-# with open("response.txt", "w") as f:
-#     f.write(str(response))
 
 # ── Print result ──────────────────────────────────────────────────────────────
 OUTPUT_PATH = os.path.join(DATA_DIR, "granite_analysis.txt")
