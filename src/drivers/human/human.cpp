@@ -497,7 +497,58 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
         liveFile.close();
     }
 }
+void logLiveCoaching(tCarElt* car, tSituation *s) {
+    static double lastLiveWrite = 0;
+    if (s->currentTime - lastLiveWrite < 2.0) return;
+    lastLiveWrite = s->currentTime;
 
+    int macro = getMacroSegment(car->_trkPos.seg->id);
+    int lap   = car->_laps;
+
+    // Read segment_times.json that's already being written by logSegmentPosition
+    std::string segFile = std::string(getenv("HOME")) + "/.torcs/DrivingData/segment_times.json";
+    std::map<int, std::map<int, double>> segTimes; // [lap][seg] = time
+
+    std::ifstream f(segFile.c_str());
+    std::string line;
+    while (std::getline(f, line)) {
+        if (line.empty()) continue;
+        if (line.back() == ',') line.pop_back();
+        int l = -1, seg = -1; double t = 0.0;
+        size_t pos;
+        if ((pos = line.find("\"lap\":"))     != std::string::npos) l   = std::stoi(line.substr(pos + 6));
+        if ((pos = line.find("\"segment\":")) != std::string::npos) seg = std::stoi(line.substr(pos + 10));
+        if ((pos = line.find("\"time\":"))    != std::string::npos) t   = std::stod(line.substr(pos + 7));
+        if (l >= 0 && seg >= 0) segTimes[l][seg] = t;
+    }
+
+    // Get prev lap times (lap - 1)
+    double prevTime = 0.0, curSegTime = 0.0;
+    if (segTimes.count(lap - 1) && segTimes[lap - 1].count(macro))
+        prevTime = segTimes[lap - 1][macro];
+    if (segTimes.count(lap) && segTimes[lap].count(macro))
+        curSegTime = segTimes[lap][macro];
+
+    double delta = (prevTime > 0.0 && curSegTime > 0.0) ? (curSegTime - prevTime) : 0.0;
+
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_coaching_data.json";
+    std::ofstream out(path.c_str(), std::ios::out | std::ios::trunc);
+    if (out.is_open()) {
+        out << "{"
+            << "\"speed\":"       << (car->_speed_x * 3.6) << ","
+            << "\"gear\":"        << car->_gear             << ","
+            << "\"damage\":"      << car->_dammage          << ","
+            << "\"trackPos\":"    << car->_trkPos.toMiddle  << ","
+            << "\"segment\":"     << macro                  << ","
+            << "\"lap\":"         << lap                    << ","
+            << "\"prevSegTime\":" << prevTime               << ","
+            << "\"curSegTime\":"  << curSegTime             << ","
+            << "\"delta\":"       << delta                  << ","
+            << "\"hasPrevLap\":"  << (prevTime > 0.0 ? "true" : "false")
+            << "}";
+        out.close();
+    }
+}
 /*
  * Function
  *	InitFuncPt
@@ -1336,6 +1387,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logSegmentPosition(car, s);
 	logSpeed(car, s);
 	logLiveCommentary(car, s);
+	logLiveCoaching(car, s);
 
 #ifndef WIN32
 #ifdef TELEMETRY
