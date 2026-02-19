@@ -475,6 +475,29 @@ static void endStatistics(tCarElt* car, tSituation *s)
     outFile.close();
     printf("Stats Recorded (%d laps).\n", lapCount);
 }
+
+void logLiveCommentary(tCarElt* car, tSituation *s) {
+    static double lastLiveWrite = 0;
+    // Log every 2 seconds to give the AI time to think
+    if (s->currentTime - lastLiveWrite < 2.0) return;
+    lastLiveWrite = s->currentTime;
+
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_data.json";
+    std::ofstream liveFile(path.c_str(), std::ios::out | std::ios::trunc);
+
+    if (liveFile.is_open()) {
+        liveFile << "{"
+                 << "\"speed\":" << (car->_speed_x * 3.6) << ","
+                 << "\"gear\":" << car->_gear << ","
+                 << "\"distToStart\":" << car->_trkPos.toStart << ","
+                 << "\"damage\":" << car->_dammage << ","
+                 << "\"trackPos\":" << car->_trkPos.toMiddle << ","
+				 << "\"Segment\":" << car->_trkPos.seg->id  << ""
+                 << "}";
+        liveFile.close();
+    }
+}
+
 /*
  * Function
  *	InitFuncPt
@@ -1312,6 +1335,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logTrackPosition(car, s); // Here is where the car Logs the driving data
 	logSegmentPosition(car, s);
 	logSpeed(car, s);
+	logLiveCommentary(car, s);
 
 #ifndef WIN32
 #ifdef TELEMETRY
