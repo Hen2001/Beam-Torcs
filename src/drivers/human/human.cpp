@@ -122,21 +122,13 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 #include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
+static std::ofstream speedOut;
+static std::ofstream trackOut;
 
 static void printPerformanceReport()
 {
     // Target values
-    static const double SEGMENT_TARGETS[9] = {
-        3.3,   // Segment 0
-        8.5,   // Segment 1
-        7.3,   // Segment 2
-        6.5,   // Segment 3
-        8.1,   // Segment 4
-        8.65,  // Segment 5
-        12.75, // Segment 6
-        5.2,   // Segment 7
-        10.45  // Segment 8
-    };
+    static const double SEGMENT_TARGETS[9] = {3.3, 8.5, 7.3, 6.5, 8.1, 8.65, 12.75, 5.2, 10.45};
     static const double TARGET_LAP_TIME  = 70.0;   // seconds
     static const double TARGET_AVG_SPEED = 176.0;  // km/h
     static const double WARN_PCT         = 10.0;   // % over target = BAD
@@ -220,12 +212,16 @@ static void printPerformanceReport()
     printf("%s%s║        TORCS Player Performance Report           ║%s\n", BOLD, CYAN, RESET);
     printf("%s%s╚══════════════════════════════════════════════════╝%s\n", BOLD, CYAN, RESET);
 
-    // ── Segment analysis per lap ──────────────────────────────────────────────
+    double overallBestLap = 1e9;
+    int lapCount = segTimes.size();
+
     for (auto& lapEntry : segTimes) {
         int lap = lapEntry.first;
         printf("\n%s%s── Lap %d Segment Analysis ──%s\n", BOLD, CYAN, lap, RESET);
         printf("  %-6s %8s %8s %8s %7s  %s\n", "Seg", "Time(s)", "Target", "Diff", "Diff%", "Rating");
         printf("  %s\n", "-------------------------------------------------------");
+
+        double lapTotal = 0.0;
 
         for (int seg = 0; seg < 9; seg++) {
             double target = SEGMENT_TARGETS[seg];
@@ -235,6 +231,7 @@ static void printPerformanceReport()
                 continue;
             }
             double avg  = segTimes[lap][seg] / segCounts[lap][seg];
+            lapTotal += avg;  // accumulate lap time from segments
             double diff = avg - target;
             double pct  = (target != 0.0) ? ((avg - target) / target * 100.0) : 0.0;
             const char* col = rating(avg, target, true);
@@ -242,58 +239,46 @@ static void printPerformanceReport()
             printf("  %-6d %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
                    seg + 1, avg, target, diff, pct, col, sym, RESET);
         }
-    }
 
-    // ── Lap times ─────────────────────────────────────────────────────────────
-    printf("\n%s%s── Lap Times ──%s\n", BOLD, CYAN, RESET);
-    printf("  %-6s %8s %8s %8s %7s  %s\n", "Lap", "Time(s)", "Target", "Diff", "Diff%", "Rating");
-    printf("  %s\n", "-------------------------------------------------------");
+        // Print lap total
+        double lapDiff = lapTotal - TARGET_LAP_TIME;
+        double lapPct  = (TARGET_LAP_TIME != 0.0) ? (lapDiff / TARGET_LAP_TIME * 100.0) : 0.0;
+        const char* lapCol = rating(lapTotal, TARGET_LAP_TIME, true);
+        const char* lapSym = symbol(lapTotal, TARGET_LAP_TIME, true);
+        printf("  Lap total     : %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
+               lapTotal, TARGET_LAP_TIME, lapDiff, lapPct, lapCol, lapSym, RESET);
 
-    for (int i = 0; i < lapCount; i++) {
-        double t    = lapTimes[i];
-        double diff = t - TARGET_LAP_TIME;
-        double pct  = (TARGET_LAP_TIME != 0.0) ? ((t - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
-        const char* col = rating(t, TARGET_LAP_TIME, true);
-        const char* sym = symbol(t, TARGET_LAP_TIME, true);
-        printf("  %-6d %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
-               i + 1, t, TARGET_LAP_TIME, diff, pct, col, sym, RESET);
+        if (lapTotal < overallBestLap) overallBestLap = lapTotal;
     }
 
     // ── Overall stats ─────────────────────────────────────────────────────────
-    double avgSpeedMs  = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
-    double avgSpeedKmh = avgSpeedMs * 3.6;
-
-    // Compute best lap from recorded lap times
-    double bestLapSec = (lapCount > 0) ? lapTimes[0] : 0.0;
-    for (int i = 1; i < lapCount; i++)
-        if (lapTimes[i] < bestLapSec) bestLapSec = lapTimes[i];
-
-    {
-        double diff = avgSpeedKmh - TARGET_AVG_SPEED;
-        double pct  = (TARGET_AVG_SPEED != 0.0) ? ((avgSpeedKmh - TARGET_AVG_SPEED) / TARGET_AVG_SPEED * 100.0) : 0.0;
-        const char* col = rating(avgSpeedKmh, TARGET_AVG_SPEED, false);
-        const char* sym = symbol(avgSpeedKmh, TARGET_AVG_SPEED, false);
-        printf("  Avg speed      : %.1f km/h  (target %.0f km/h)  %+.1f  %s%s%s\n",
-               avgSpeedKmh, TARGET_AVG_SPEED, diff, col, sym, RESET);
-    }
-    {
-        double diff = bestLapSec - TARGET_LAP_TIME;
-        double pct  = (TARGET_LAP_TIME != 0.0) ? ((bestLapSec - TARGET_LAP_TIME) / TARGET_LAP_TIME * 100.0) : 0.0;
-        const char* col = rating(bestLapSec, TARGET_LAP_TIME, true);
-        const char* sym = symbol(bestLapSec, TARGET_LAP_TIME, true);
-        printf("  Best lap       : %.2fs  (target %.0fs)  %+.2f  %s%s%s\n",
-               bestLapSec, TARGET_LAP_TIME, diff, col, sym, RESET);
-    }
+    printf("\n%s%s── Overall Stats ──%s\n", BOLD, CYAN, RESET);
+    printf("  Best lap      : %.2f s\n", overallBestLap);
+    printf("  Total laps    : %d\n", lapCount);
 
     printf("\n%s%s══════════════════════════════════════════════════%s\n", BOLD, CYAN, RESET);
     printf("  Legend: %sGOOD ✓%s at/under target   %sOK ~%s within %.0f%%   %sBAD ✗%s over %.0f%% off\n",
            GREEN, RESET, YELLOW, RESET, WARN_PCT, RED, RESET, WARN_PCT);
     printf("%s%s══════════════════════════════════════════════════%s\n\n", BOLD, CYAN, RESET);
 }
+
 static void shutdown(int index)
 {
+	/// Close speed log 
+    if (speedOut.is_open()) {
+        speedOut.seekp(-2, std::ios_base::cur); 
+        speedOut << "\n]" << std::endl;
+        speedOut.close();
+    }
+
+    // Close track log 
+    if (trackOut.is_open()) {
+        trackOut.seekp(-2, std::ios_base::cur); 
+        trackOut << "\n]" << std::endl;           
+        trackOut.close();
+    }
 	printPerformanceReport();
-	system("sleep 2 && python3 /home/zackc/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+	system("sleep 2 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
@@ -309,71 +294,68 @@ static void shutdown(int index)
 }
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
-    
-    if (s->currentTime - lastPosWriteTime < 1.0) {
+
+    if (s->currentTime - lastPosWriteTime < 0.2) {
         return;
     }
     lastPosWriteTime = s->currentTime;
     
-    const char* homeDir = getenv("HOME");
-    if (!homeDir) return;
+    if (!trackOut.is_open()) {
+        const char* homeDir = getenv("HOME");
+        if (!homeDir) return;
+        std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+        mkdir(dataDir.c_str(), 0755);
+        std::string fullPath = dataDir + "/track_pos.json";
+        trackOut.open(fullPath.c_str(), std::ios_base::app); 
+        trackOut << "[" << std::endl; // Start the array if new file
+    }
     
-    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-    mkdir(dataDir.c_str(), 0755);
-    
-    std::string fullPath = dataDir + "/track_pos.json";
-    
-    std::ofstream outFile;
-    outFile.open(fullPath.c_str(), std::ios_base::app); 
-    
-    if (outFile.is_open()) {
-        outFile << "{"
-                << "\"time\":" << s->currentTime << ","
-                << "\"pos_x\":" << car->_pos_X << ","
-                << "\"pos_y\":" << car->_pos_Y << ","
-                << "\"track_pos\":" << car->_trkPos.toMiddle << ","  // Distance from track center (-track_width/2 to +track_width/2)
-                << "\"segment_id\":" << car->_trkPos.seg->id << ","  // Current track segment
-                << "\"to_start\":" << car->_trkPos.toStart << ","    // Distance along track from start line
-                << "\"lap\":" << car->_laps                          // Current lap number
-                << "}," << std::endl;
-       
+    if (trackOut.is_open()) {
+        trackOut << "{"
+                  << "\"time\":" << s->currentTime << ","
+                  << "\"pos_x\":" << car->_pos_X << ","
+                  << "\"pos_y\":" << car->_pos_Y << ","
+                  << "\"track_pos\":" << car->_trkPos.toMiddle << "," 
+                  << "\"segment_id\":" << car->_trkPos.seg->id << "," 
+                  << "\"to_start\":" << car->_trkPos.toStart << ","   
+                  << "\"lap\":" << car->_laps                        
+                  << "}," << std::endl;
     }
 }
 
 void logSpeed(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
-    
+
     if (s->currentTime - lastPosWriteTime < 0.5) {
         return;
     }
     lastPosWriteTime = s->currentTime;
+
     totalSpeed += fabs(car->_speed_x);
     speedSamples++;
-    const char* homeDir = getenv("HOME");
-    if (!homeDir) return;
-    
-    std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-    mkdir(dataDir.c_str(), 0755);
-    
-    std::string fullPath = dataDir + "/speed.json";
-    
-    std::ofstream outFile;
-    outFile.open(fullPath.c_str(), std::ios_base::app); 
-    
-    if (outFile.is_open()) {
-        outFile << "{"
+
+    if (!speedOut.is_open()) {
+        const char* homeDir = getenv("HOME");
+        if (!homeDir) return;
+        std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+        mkdir(dataDir.c_str(), 0755);
+        std::string fullPath = dataDir + "/speed.json";
+        speedOut.open(fullPath.c_str(), std::ios_base::app); 
+        speedOut << "[" << std::endl; // Start the array if new file
+    }
+
+    if (speedOut.is_open()) {
+        speedOut << "{"
                 << "\"time\":" << s->currentTime << ","
                 << "\"segment_id\":" << car->_trkPos.seg->id << ","  
-				<< "\"speedX\":" << car->_speed_X << ","
-				<< "\"speedy\":" << car->_speed_Y << ","
-				<< "\"speedx\":" << car->_speed_x 
-
-
-
+                << "\"speedX\":" << car->_speed_X << ","
+                << "\"speedy\":" << car->_speed_Y << ","
+                << "\"speedx\":" << car->_speed_x << ","
+                << "\"Kmph\":" << (car->_speed_x * 3.6) 
                 << "}," << std::endl;
-        outFile.close();
     }
 }
+
 
 int getMacroSegment(int segId) {
     if (segId < 40) return 0;
@@ -740,6 +722,8 @@ void newrace(int index, tCarElt* car, tSituation *s)
 	totalSpeed = 0.0;    
     speedSamples = 0; 
 	clearDrivingData();
+	if(speedOut.is_open()) speedOut.close();
+    if(trackOut.is_open()) trackOut.close();
 	statsWritten = false;
 	int idx = index - 1;
 
