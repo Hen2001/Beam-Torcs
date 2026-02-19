@@ -39,6 +39,9 @@
 #include <cstring>
 #include <vector>
 #include <string>
+std::vector<std::string> wrapText(const char* text, int maxLineLength);
+std::string insertKeywordBreaks(const std::string& input);
+
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
 
@@ -209,8 +212,7 @@ static void rmChgRaceScreen(void *vprc)
 	GfuiScreenRelease(prevScr);
 }
 
-#include <vector>
-#include <string>
+
 
 std::string insertKeywordBreaks(const std::string& input)
 {
@@ -271,7 +273,59 @@ std::vector<std::string> wrapText(const char* text, int maxLineLength)
     return lines;
 }
 
+//----------------------------
+static void rmGraniteAnalysis(void *prevHdle)
+{
+    void *analysisScr = GfuiScreenCreate();
 
+    GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
+
+    GfuiTitleCreate(analysisScr, "Granite AI Coach", 18);
+
+    // Load file (reuse your loading code here)
+    char analysis[2048] = {0};
+    FILE* f = fopen("/home/lewis/.torcs/DrivingData/granite_analysis.txt", "r");
+    if (f) {
+        size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+        analysis[bytesRead] = '\0';
+        fclose(f);
+    }
+
+    std::vector<std::string> lines = wrapText(analysis, 75);
+
+    int yPos = 420;
+
+    for (size_t i = 0; i < lines.size(); i++) {
+        GfuiLabelCreate(analysisScr,
+                        lines[i].c_str(),
+                        GFUI_FONT_MEDIUM_C,
+                        60, yPos,
+                        GFUI_ALIGN_HL_VB,
+                        0);
+
+        yPos -= 18;
+    }
+
+    // Back button
+    GfuiButtonCreate(analysisScr,
+                 "Back to Results",
+                 GFUI_FONT_MEDIUM_C,
+                 320,
+                 40,
+                 200,
+                 GFUI_ALIGN_HC_VB,
+                 0,                  // shortcut key
+                 prevHdle,           // user data
+                 GfuiScreenReplace,  // callback
+                 NULL,
+                 NULL,
+                 NULL);
+
+
+    GfuiScreenActivate(analysisScr);
+}
+
+//-----------------------------
 
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 {
@@ -382,45 +436,45 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 		y -= 15;
 	}
 
-	char analysis[2048] = {0};
-const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
-int attempts = 0;
-while (attempts < 60) {   // wait up to ~10 seconds
-    struct stat st;
-	printf("Waiting for analysis... attempt %d\n", attempts);
+// 	char analysis[2048] = {0};
+// const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
+// int attempts = 0;
+// while (attempts < 60) {   // wait up to ~10 seconds
+//     struct stat st;
+// 	printf("Waiting for analysis... attempt %d\n", attempts);
 
-    if (stat(filepath, &st) == 0 && st.st_size > 0) {
-        break;  // file exists and has content
-    }
-    sleep(1);
-    attempts++;
-}
-printf("Finished waiting. Attempts: %d\n", attempts);
+//     if (stat(filepath, &st) == 0 && st.st_size > 0) {
+//         break;  // file exists and has content
+//     }
+//     sleep(1);
+//     attempts++;
+// }
+// printf("Finished waiting. Attempts: %d\n", attempts);
 
-FILE* f = fopen(filepath, "r");
-if (f) {
-    size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
-    analysis[bytesRead] = '\0';   // ensure null termination
-    fclose(f);
-} else {
-    strcpy(analysis, "Granite AI Coach analysis unavailable.");
-}
+// FILE* f = fopen(filepath, "r");
+// if (f) {
+//     size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+//     analysis[bytesRead] = '\0';   // ensure null termination
+//     fclose(f);
+// } else {
+//     strcpy(analysis, "Granite AI Coach analysis unavailable.");
+// }
 
 
-	std::vector<std::string> lines = wrapText(analysis, 100);
+// 	std::vector<std::string> lines = wrapText(analysis, 100);
 
-int yPos = 350;   // starting height (move up here)
+// int yPos = 350;   // starting height (move up here)
 
-for (size_t i = 0; i < lines.size(); i++) {
-    GfuiLabelCreate(rmScrHdle,
-                    lines[i].c_str(),
-                    GFUI_FONT_MEDIUM_C,
-                    320, yPos,
-                    GFUI_ALIGN_HC_VB,
-                    0);
+// for (size_t i = 0; i < lines.size(); i++) {
+//     GfuiLabelCreate(rmScrHdle,
+//                     lines[i].c_str(),
+//                     GFUI_FONT_MEDIUM_C,
+//                     320, yPos,
+//                     GFUI_ALIGN_HC_VB,
+//                     0);
 
-    yPos -= 18;  // spacing between lines
-}
+//     yPos -= 18;  // spacing between lines
+// }
 
 
 	if (start > 0) {
@@ -434,6 +488,20 @@ for (size_t i = 0; i < lines.size(); i++) {
 				NULL, (tfuiCallback)NULL, (tfuiCallback)NULL);
 		GfuiAddSKey(rmScrHdle, GLUT_KEY_PAGE_UP,   "Previous Results", (void*)&RmPrevRace, rmChgRaceScreen, NULL);
 	}
+GfuiButtonCreate(rmScrHdle,
+                 "View Granite Analysis",
+                 GFUI_FONT_MEDIUM_C,
+                 320,
+                 60,
+                 250,
+                 GFUI_ALIGN_HC_VB,
+                 0,                     // shortcut
+                 rmScrHdle,             // pass current screen
+                 rmGraniteAnalysis,     // callback
+                 NULL,
+                 NULL,
+                 NULL);
+
 
 	GfuiButtonCreate(rmScrHdle,
 			"Continue",
