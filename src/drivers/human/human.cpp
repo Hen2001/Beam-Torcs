@@ -282,7 +282,7 @@ if (speedOut.is_open()) {
         trackOut.close();
     }
 	printPerformanceReport();
-	system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log");
+	system("sleep 2 && python3 /home/zackc/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
