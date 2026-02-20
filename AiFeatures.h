@@ -5,7 +5,7 @@
 inline bool coach      = false;
 inline bool commentary = false;
 inline bool analysis   = false;
-inline bool engineer = false;
+inline bool engineer = true;
 
 
 

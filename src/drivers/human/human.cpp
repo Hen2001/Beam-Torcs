@@ -312,7 +312,7 @@ if (speedOut.is_open()) {
         system("pkill -9 -f liveComs.py");
     }
 	if (engineer){
-		system("pkill -9 -f race_engineer.py")
+		system("pkill -9 -f race_engineer.py");
 	}
 	printPerformanceReport();
   
