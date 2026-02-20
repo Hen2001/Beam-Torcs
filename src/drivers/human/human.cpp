@@ -294,9 +294,11 @@ if (speedOut.is_open()) {
   
 	if (analysis)
 	{
-		system("sleep 3 && python3 /home/lewis/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+		std::string cmd = "sleep 2 && python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + 
+                  "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
+		system(cmd.c_str());
 	}
-	
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
@@ -810,10 +812,16 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 void newrace(int index, tCarElt* car, tSituation *s)
 {
 	if (coach) {
-        system("python3 /home/lewis/Beam-Torcs/src/Granite/liveCoach.py &");
+        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
+		std::string cmd = "python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveCoach.py &";
+		system(cmd.c_str());
     }
     if (commentary) {
-        system("python3 /home/lewis/Beam-Torcs/src/Granite/liveComs.py &");
+        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+			std::string cmd = "python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
+		system(cmd.c_str());
     }
 	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));

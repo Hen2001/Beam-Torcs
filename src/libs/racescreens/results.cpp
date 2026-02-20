@@ -360,7 +360,7 @@ std::vector<std::string> wrapText(const char* text, int maxLineLength)
 
 static void rmGraniteAnalysis(void *prevHdle)
 {
-    const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
+   std::string path = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
 
     void *analysisScr = GfuiScreenCreate();
     GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
