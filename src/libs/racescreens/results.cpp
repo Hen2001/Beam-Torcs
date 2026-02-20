@@ -39,6 +39,9 @@
 #include <cstring>
 #include <vector>
 #include <string>
+#include "AiFeatures.h"
+#include <tgfclient.h>
+
 std::vector<std::string> wrapText(const char* text, int maxLineLength);
 std::string insertKeywordBreaks(const std::string& input);
 
@@ -354,64 +357,159 @@ std::vector<std::string> wrapText(const char* text, int maxLineLength)
     return lines;
 }
 
-//----------------------------
+
 static void rmGraniteAnalysis(void *prevHdle)
 {
+   std::string path = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
+
     void *analysisScr = GfuiScreenCreate();
-
     GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
-
     GfuiTitleCreate(analysisScr, "Granite AI Coach", 18);
 
-    // Load file (reuse your loading code here)
-    // Load file (reuse your loading code here)
-	char analysis[2048] = {0};
-	const char* home = getenv("HOME");
-	if (home) {
-		std::string path = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
-		FILE* f = fopen(path.c_str(), "r");  // f is declared here
-		if (f) {
-			size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
-			analysis[bytesRead] = '\0';
-			fclose(f);
-		}
-	}
-
-    std::vector<std::string> lines = wrapText(analysis, 75);
-
-    int yPos = 420;
-
-    for (size_t i = 0; i < lines.size(); i++) {
+    if (!analysis) {
         GfuiLabelCreate(analysisScr,
-                        lines[i].c_str(),
+                        "Granite AI Coach is disabled in Features.",
                         GFUI_FONT_MEDIUM_C,
-                        60, yPos,
-                        GFUI_ALIGN_HL_VB,
+                        320, 300,
+                        GFUI_ALIGN_HC_VB,
                         0);
 
-        yPos -= 18;
+        GfuiButtonCreate(analysisScr,
+                         "Back",
+                         GFUI_FONT_LARGE_C,
+                         320,
+                         40,
+                         200,
+                         GFUI_ALIGN_HC_VB,
+                         0,
+                         prevHdle,
+                         GfuiScreenReplace,
+                         NULL, NULL, NULL);
+
+        GfuiScreenActivate(analysisScr);
+        return;
     }
 
-    // Back button
-    GfuiButtonCreate(analysisScr,
-                 "Back to Results",
-                 GFUI_FONT_MEDIUM_C,
-                 320,
-                 40,
-                 200,
-                 GFUI_ALIGN_HC_VB,
-                 0,                  // shortcut key
-                 prevHdle,           // user data
-                 GfuiScreenReplace,  // callback
-                 NULL,
-                 NULL,
-                 NULL);
+    
+    GfuiLabelCreate(analysisScr,
+                    "Generating analysis... please wait",
+                    GFUI_FONT_MEDIUM_C,
+                    320, 300,
+                    GFUI_ALIGN_HC_VB,
+                    0);
 
+    GfuiScreenActivate(analysisScr);
+
+   
+    struct stat st;
+    int attempts = 0;
+
+    while (attempts < 60) { 
+        if (stat(filepath, &st) == 0 && st.st_size > 0) {
+            break;
+        }
+        sleep(1);
+        attempts++;
+    }
+
+    
+    char analysisText[4096] = {0};
+    FILE* f = fopen(filepath, "r");
+
+    if (f) {
+        size_t bytesRead = fread(analysisText, 1, sizeof(analysisText) - 1, f);
+        analysisText[bytesRead] = '\0';
+        fclose(f);
+    } else {
+        strcpy(analysisText, "Analysis could not be generated.");
+    }
+
+    
+    GfuiScreenRelease(analysisScr);
+    analysisScr = GfuiScreenCreate();
+    GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
+    GfuiTitleCreate(analysisScr, "Granite AI Coach", 18);
+
+    
+    const int maxCharsPerLine = 100;
+    int y = 430;   
+
+    char *linePtr = strtok(analysisText, "\n");
+
+    while (linePtr && y > 80)
+    {
+      
+        if (strstr(linePtr, "Speed:") != NULL ||
+            strstr(linePtr, "Specific Coaching Focus:") != NULL)
+        {
+            y -= 15;
+        }
+
+        char tempLine[1024];
+        strncpy(tempLine, linePtr, sizeof(tempLine));
+        tempLine[sizeof(tempLine)-1] = '\0';
+
+        while (strlen(tempLine) > maxCharsPerLine)
+        {
+            int breakPos = maxCharsPerLine;
+
+         
+            for (int i = maxCharsPerLine; i > 0; i--)
+            {
+                if (tempLine[i] == ' ') {
+                    breakPos = i;
+                    break;
+                }
+            }
+
+            char segment[1024];
+            strncpy(segment, tempLine, breakPos);
+            segment[breakPos] = '\0';
+
+            GfuiLabelCreate(analysisScr,
+                            segment,
+                            GFUI_FONT_MEDIUM_C,
+                            320, y,
+                            GFUI_ALIGN_HC_VB,
+                            0);
+
+            y -= 20;
+
+            memmove(tempLine,
+                    tempLine + breakPos + 1,
+                    strlen(tempLine) - breakPos);
+        }
+
+        if (strlen(tempLine) > 0)
+        {
+            GfuiLabelCreate(analysisScr,
+                            tempLine,
+                            GFUI_FONT_MEDIUM_C,
+                            320, y,
+                            GFUI_ALIGN_HC_VB,
+                            0);
+
+            y -= 22;
+        }
+
+        linePtr = strtok(NULL, "\n");
+    }
+
+    GfuiButtonCreate(analysisScr,
+                     "Back",
+                     GFUI_FONT_LARGE_C,
+                     320,
+                     40,
+                     200,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     prevHdle,
+                     GfuiScreenReplace,
+                     NULL, NULL, NULL);
 
     GfuiScreenActivate(analysisScr);
 }
 
-//-----------------------------
 
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 {
@@ -576,7 +674,7 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 	}
 GfuiButtonCreate(rmScrHdle,
                  "View Granite Analysis",
-                 GFUI_FONT_MEDIUM_C,
+                 GFUI_FONT_LARGE_C,
                  320,
                  60,
                  250,
