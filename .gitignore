@@ -7,7 +7,7 @@
 # Precompiled Headers
 *.gch
 *.pch
-*.venv
+
 venv
 .venv
 # Compiled Dynamic libraries
