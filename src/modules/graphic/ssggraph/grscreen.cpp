@@ -2,7 +2,7 @@
 
     file        : grscreen.cpp
     created     : Thu May 15 22:11:03 CEST 2003
-    copyright   : (C) 2003 by Eric Espi�                       
+    copyright   : (C) 2003 by Eric Espi?                       
     email       : eric.espie@torcs.org   
     version     : $Id: grscreen.cpp,v 1.22.2.5 2012/06/09 11:44:46 berniw Exp $
 
@@ -42,22 +42,38 @@
 #include <string>
 #include "AiFeatures.h"
 
-std::string chatbotMessage = "Waiting for AI...";
-std::string aiCommentary = "AI Commentary Loading...";
-std::string aiCoaching = "AI Coaching Loading...";
+std::string chatbotMessage  = "Waiting for AI...";
+std::string aiCommentary    = "AI Commentary Loading...";
+std::string aiCoaching      = "AI Coaching Loading...";
+
+// Word-by-word for commentary 
+static std::string  comm_fullText     = "";
+static int          comm_wordsShown   = 0;
+static double       comm_lastWordTime = 0.0;
+static bool         comm_textChanged  = false;
+
+// Word-by-word for coaching 
+static std::string  coach_fullText     = "";
+static int          coach_wordsShown   = 0;
+static double       coach_lastWordTime = 0.0;
+static bool         coach_textChanged  = false;
+
+// This value changes how fast words appear on screen
+static const double WORDS_PER_SEC = 0.12;
 
 int telemetryHudEnabled = 1;   // default ON
+
 // --- Segment timing state ---
 static const char* SEGMENT_NAMES[10] = {
     "First Straight",        // 0: seg < 40
-    "Hairpin",  // 1: seg < 100
-    "Corner 2",        // 2: seg < 175
-    "Corner 3",          // 3: seg < 235
-    "Long Left",     // 4: seg < 310
+    "Hairpin",               // 1: seg < 100
+    "Corner 2",              // 2: seg < 175
+    "Corner 3",              // 3: seg < 235
+    "Long Left",             // 4: seg < 310
     "Back Straight",         // 5: seg < 390
-    "The Corkscrew", // 6: seg < 500
-    "Kink",           // 7: seg < 540
-    "Final Straight",   // 8: seg < 605
+    "The Corkscrew",         // 6: seg < 500
+    "Kink",                  // 7: seg < 540
+    "Final Straight",        // 8: seg < 605
 };
 
 static int    seg_lastMacro     = -1;
@@ -409,7 +425,6 @@ void updateTelemetryMessage(tCarElt* car, tSituation* s)
             snprintf(line2, sizeof(line2), "Prev: %s %.2fs (%s%.2fs)",
                      SEGMENT_NAMES[seg_lastFinished], seg_lastTime, sign, delta);
         } else {
-            // No previous lap data yet for this segment
             snprintf(line2, sizeof(line2), "Prev: %s %.2fs (no ref)",
                      SEGMENT_NAMES[seg_lastFinished], seg_lastTime);
         }
@@ -434,7 +449,7 @@ void drawChatPanel()
     float left   = 0.0f;
     float bottom = 20.0f;
     float width  = 380.0f;
-    float height = 55.0f;          // taller to fit two lines
+    float height = 55.0f;
 
     float right  = left + width;
     float top    = bottom + height;
@@ -462,7 +477,6 @@ void drawChatPanel()
 
     glColor3f(1.0f, 1.0f, 1.0f);
 
-    // Split chatbotMessage on \n and draw each line separately
     std::string msg = chatbotMessage;
     size_t nl = msg.find('\n');
     if (nl != std::string::npos) {
@@ -473,11 +487,10 @@ void drawChatPanel()
     }
 }
 
-
 void LiveCommentary()
 {
     static double lastCheck = 0.0;
-    double now = time(nullptr);
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
     if (now - lastCheck < 0.5) return;
     lastCheck = now;
 
@@ -488,24 +501,86 @@ void LiveCommentary()
     char buf[512];
     if (fgets(buf, sizeof(buf), f)) {
         buf[strcspn(buf, "\n")] = 0;
-        aiCommentary = std::string(buf);
+        std::string incoming(buf);
+        if (incoming != aiCommentary) {
+            aiCommentary      = incoming;
+            comm_fullText     = incoming;
+            comm_wordsShown   = 0;
+            comm_lastWordTime = now;
+            comm_textChanged  = true;
+        }
     }
     fclose(f);
 }
+
+static std::string getFirstNWords(const std::string& text, int count)
+{
+    if (count <= 0) return "";
+    std::string result;
+    int words = 0;
+    size_t i = 0;
+    while (i < text.size()) {
+        while (i < text.size() && text[i] == ' ') i++;
+        if (i >= text.size()) break;
+        size_t start = i;
+        while (i < text.size() && text[i] != ' ') i++;
+        if (!result.empty()) result += ' ';
+        result += text.substr(start, i - start);
+        words++;
+        if (words >= count) break;
+    }
+    return result;
+}
+
+// CHANGED: splits text into two lines, breaking on a word boundary near maxChars
+static void wrapText(const std::string& text, int maxChars,
+                     std::string& line1, std::string& line2)
+{
+    if ((int)text.size() <= maxChars) {
+        line1 = text;
+        line2 = "";
+        return;
+    }
+    // walk back from maxChars to find a space to break on
+    int split = maxChars;
+    while (split > 0 && text[split] != ' ') split--;
+    if (split == 0) split = maxChars; // no space found, hard cut
+    line1 = text.substr(0, split);
+    line2 = text.substr(text[split] == ' ' ? split + 1 : split);
+}
+
 void drawCommentaryBox()
 {
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+    if (now - comm_lastWordTime >= WORDS_PER_SEC) {
+        int totalWords = 0;
+        bool inWord = false;
+        for (char c : comm_fullText) {
+            if (c != ' ' && !inWord) { inWord = true; totalWords++; }
+            else if (c == ' ')        { inWord = false; }
+        }
+        if (comm_wordsShown < totalWords) {
+            comm_wordsShown++;
+            comm_lastWordTime = now;
+        }
+    }
+    std::string displayText = getFirstNWords(comm_fullText, comm_wordsShown);
+
+    // CHANGED: wrap into two lines (~80 chars fits comfortably in 600px)
+    std::string line1, line2;
+    wrapText(displayText, 80, line1, line2);
+
     float left   = 250.0f;
     float width  = 600.0f;
-    float height = 30.0f;
-    float top    = 598.0f;   // near top of screen2
+    float height = 50.0f;   // CHANGED: was 30, now two lines tall
+    float top    = 598.0f;
     float bottom = top - height;
     float right  = left + width;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Dark red background for commentary feel
-    glColor4f(0.4f, 0.0f, 0.0f, 0.7f);
+    glColor4f(0.15f, 0.15f, 0.15f, 0.65f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -513,16 +588,25 @@ void drawCommentaryBox()
         glVertex2f(left,  top);
     glEnd();
 
+    glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
+    glBegin(GL_LINES);
+        glVertex2f(left,  top);
+        glVertex2f(right, top);
+    glEnd();
+
     glDisable(GL_BLEND);
 
-    glColor3f(1.0f, 1.0f, 0.2f);  // yellow text
-    drawBitmapText(aiCommentary.c_str(), left + 10, bottom + 10);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // CHANGED: line1 near top of box, line2 below
+    drawBitmapText(line1.c_str(), left + 10, bottom + 30);
+    if (!line2.empty())
+        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
 }
 
 void LiveCoaching()
 {
     static double lastCheck = 0.0;
-    double now = time(nullptr);
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
     if (now - lastCheck < 0.5) return;
     lastCheck = now;
 
@@ -533,24 +617,50 @@ void LiveCoaching()
     char buf[512];
     if (fgets(buf, sizeof(buf), f)) {
         buf[strcspn(buf, "\n")] = 0;
-        aiCoaching = std::string(buf);
+        std::string incoming(buf);
+        if (incoming != aiCoaching) {
+            aiCoaching         = incoming;
+            coach_fullText     = incoming;
+            coach_wordsShown   = 0;
+            coach_lastWordTime = now;
+            coach_textChanged  = true;
+        }
     }
     fclose(f);
 }
+
 void drawCoachingBox()
 {
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+    if (now - coach_lastWordTime >= WORDS_PER_SEC) {
+        int totalWords = 0;
+        bool inWord = false;
+        for (char c : coach_fullText) {
+            if (c != ' ' && !inWord) { inWord = true; totalWords++; }
+            else if (c == ' ')        { inWord = false; }
+        }
+        if (coach_wordsShown < totalWords) {
+            coach_wordsShown++;
+            coach_lastWordTime = now;
+        }
+    }
+    std::string displayText = getFirstNWords(coach_fullText, coach_wordsShown);
+
+    // CHANGED: wrap into two lines
+    std::string line1, line2;
+    wrapText(displayText, 80, line1, line2);
+
     float left   = 250.0f;
     float width  = 600.0f;
-    float height = 30.0f;
-    float top    = 598.0f;   // near top of screen
+    float height = 50.0f;   // CHANGED: was 30, now two lines tall
+    float top    = 598.0f;
     float bottom = top - height;
     float right  = left + width;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // Dark red background for commentary feel
-    glColor4f(0.4f, 0.0f, 0.0f, 0.7f);
+    glColor4f(0.15f, 0.15f, 0.15f, 0.65f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -558,11 +668,21 @@ void drawCoachingBox()
         glVertex2f(left,  top);
     glEnd();
 
+    glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
+    glBegin(GL_LINES);
+        glVertex2f(left,  top);
+        glVertex2f(right, top);
+    glEnd();
+
     glDisable(GL_BLEND);
 
-    glColor3f(1.0f, 1.0f, 0.2f);  // yellow text
-    drawBitmapText(aiCoaching.c_str(), left + 10, bottom + 10);
+    glColor3f(1.0f, 1.0f, 1.0f);
+    // CHANGED: line1 near top of box, line2 below
+    drawBitmapText(line1.c_str(), left + 10, bottom + 30);
+    if (!line2.empty())
+        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
 }
+
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
 {
