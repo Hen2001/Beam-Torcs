@@ -125,7 +125,6 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 #include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
-<<<<<<< Race-Engineer
 #include <curl/curl.h>
 
 static void sendVoiceRequest(const char* endpoint)
@@ -147,10 +146,8 @@ static void sendVoiceRequest(const char* endpoint)
     }
     curl_easy_cleanup(curl);
 }
-=======
 static std::ofstream speedOut;
 static std::ofstream trackOut;
->>>>>>> Race-Engineer-On-Off
 
 static void printPerformanceReport()
 {
