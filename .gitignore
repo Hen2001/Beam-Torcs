@@ -1,33 +1,10 @@
 # --- Compiled Binaries & Objects ---
 *.o
-<<<<<<< HEAD
-=======
-*.obj
-
-# Precompiled Headers
-*.gch
-*.pch
-
-venv
-.venv
-# Compiled Dynamic libraries
-*.so
-*.dylib
-*.dll
-
-# Fortran module files
-*.mod
-*.smod
-
-# Compiled Static libraries
-*.lai
-*.la
->>>>>>> 6ceaa46 (git)
 *.a
 *.so
 *.lo
 *.la
-.libs/
+
 .deps/
 .venv
 # Ignore hidden .depend files recursively
@@ -56,7 +33,7 @@ venv
 .venv
 # --- Source Specific Ignores ---
 # Ignore libs folders inside src or subfolders
-**/libs/
+
 
 # --- IDE & System Files ---
 .vscode/
