@@ -158,7 +158,6 @@ while True:
                 data = json.load(f)
             commentary = generate_commentary(data)
             print(f"\n[LIVE]: {commentary}")
-            # ADD THIS:
             with open(os.path.expanduser("~/.torcs/DrivingData/live_commentary.txt"), "w") as f:
                 f.write(commentary)
             last_mtime = current_mtime
