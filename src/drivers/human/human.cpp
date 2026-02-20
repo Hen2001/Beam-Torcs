@@ -47,6 +47,10 @@
 #include "pref.h"
 #include "human.h"
 #include <map>
+#include "../../libs/client/featureflags.h"
+
+
+
 #include "AiFeatures.h"
 
 #define DRWD 0
@@ -61,7 +65,7 @@ static void endrace(int index, tCarElt* car, tSituation *s);  // Added end race 
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
 
 int joyPresent = 0;
-
+//bool responseBot = 0;
 static tTrack	*curTrack;
 
 static float color[] = {0.0, 0.0, 1.0, 1.0};
@@ -288,6 +292,7 @@ if (speedOut.is_open()) {
         system("pkill -9 -f liveComs.py");
     }
 	printPerformanceReport();
+  
 	if (analysis)
 	{
 		system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
