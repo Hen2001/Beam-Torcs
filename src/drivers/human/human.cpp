@@ -294,9 +294,11 @@ if (speedOut.is_open()) {
   
 	if (analysis)
 	{
-		system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+		std::string cmd = "sleep 3 && python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + 
+                  "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
+		system(cmd.c_str());
 	}
-	
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
