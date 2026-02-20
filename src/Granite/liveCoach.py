@@ -1,9 +1,9 @@
 import json, time, os, torch, random
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-DATA_PATH = os.path.expanduser("~/.torcs/DrivingData/live_coaching_data.json")
-OUTPUT_PATH = os.path.expanduser("~/.torcs/live_coaching.txt")
-MODEL_NAME = "ibm-granite/granite-4.0-350m"
+DATA_PATH   = os.path.expanduser("~/.torcs/DrivingData/live_coaching_data.json")
+OUTPUT_PATH = os.path.expanduser("~/.torcs/DrivingData/live_coaching.txt")
+MODEL_NAME  = "ibm-granite/granite-4.0-350m"
 
 SEGMENT_NAMES = [
     "First Straight", "Hairpin", "Corner 2", "Corner 3",
@@ -20,6 +20,7 @@ model = AutoModelForCausalLM.from_pretrained(
 model.eval()
 print("Model loaded!")
 
+
 def generate_coaching(prompt):
     inputs = tokenizer(prompt, return_tensors="pt")
     with torch.no_grad():
@@ -34,17 +35,18 @@ def generate_coaching(prompt):
     result = tokenizer.decode(output[0][inputs.input_ids.shape[1]:], skip_special_tokens=True).strip()
     return result.split('"')[0].split('\n')[0].strip()
 
+
 def get_coaching(data):
-    speed      = int(data.get('speed', 0))
-    gear       = data.get('gear', 0)
-    damage     = data.get('damage', 0)
-    track_pos  = data.get('trackPos', 0)
-    segment    = data.get('segment', 0)
-    lap        = data.get('lap', 0)
-    prev_time  = data.get('prevSegTime', 0.0)
-    cur_time   = data.get('curSegTime', 0.0)
-    delta      = data.get('delta', 0.0)
-    has_prev   = data.get('hasPrevLap', False)
+    speed     = int(data.get('speed', 0))
+    gear      = data.get('gear', 0)
+    damage    = data.get('damage', 0)
+    track_pos = data.get('trackPos', 0)
+    segment   = data.get('segment', 0)
+    lap       = data.get('lap', 0)
+    prev_time = data.get('prevSegTime', 0.0)
+    cur_time  = data.get('curSegTime', 0.0)
+    delta     = data.get('delta', 0.0)
+    has_prev  = data.get('hasPrevLap', False)
 
     seg_name = SEGMENT_NAMES[segment] if segment < len(SEGMENT_NAMES) else f"Sector {segment}"
 
@@ -56,12 +58,12 @@ def get_coaching(data):
             f"Coach says: \""
         )
         return generate_coaching(prompt)
-        
+
     # Off track
     if abs(track_pos) > 7.5:
         return f"Get back on track! You're {abs(track_pos):.1f}m off centre through {seg_name}."
 
-    # Delta coaching - Comparing segments
+    # Delta coaching
     if delta != 0.0:
         sign = "+" if delta > 0 else ""
         if delta > 1.5:
@@ -88,6 +90,7 @@ def get_coaching(data):
     )
     return generate_coaching(prompt)
 
+
 last_mtime = 0
 while True:
     try:
@@ -95,8 +98,8 @@ while True:
         if current_mtime != last_mtime:
             with open(DATA_PATH, 'r') as f:
                 data = json.load(f)
-            coaching = get_coaching(data)
-            print(f"\n[COACH]: {coaching}")
+            coaching = get_coaching(data)   # was wrongly calling generate_commentary
+            print(f"\n[COACHING]: {coaching}")
             with open(OUTPUT_PATH, "w") as f:
                 f.write(coaching)
             last_mtime = current_mtime

@@ -481,13 +481,14 @@ void LiveCommentary()
     if (now - lastCheck < 0.5) return;
     lastCheck = now;
 
-    FILE* f = fopen("/tmp/live_commentary.txt", "r");
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_commentary.txt";
+    FILE* f = fopen(path.c_str(), "r");
     if (!f) return;
 
     char buf[512];
     if (fgets(buf, sizeof(buf), f)) {
         buf[strcspn(buf, "\n")] = 0;
-        aiCommentary = std::string(buf);  
+        aiCommentary = std::string(buf);
     }
     fclose(f);
 }
@@ -496,7 +497,7 @@ void drawCommentaryBox()
     float left   = 250.0f;
     float width  = 600.0f;
     float height = 30.0f;
-    float top    = 598.0f;   // near top of screen
+    float top    = 598.0f;   // near top of screen2
     float bottom = top - height;
     float right  = left + width;
 
@@ -525,7 +526,7 @@ void LiveCoaching()
     if (now - lastCheck < 0.5) return;
     lastCheck = now;
 
-    std::string path = std::string(getenv("HOME")) + "/.torcs/live_coaching.txt";
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_coaching.txt";
     FILE* f = fopen(path.c_str(), "r");
     if (!f) return;
 
