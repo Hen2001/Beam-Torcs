@@ -364,13 +364,18 @@ static void rmGraniteAnalysis(void *prevHdle)
     GfuiTitleCreate(analysisScr, "Granite AI Coach", 18);
 
     // Load file (reuse your loading code here)
-    char analysis[2048] = {0};
-    FILE* f = fopen("/home/lewis/.torcs/DrivingData/granite_analysis.txt", "r");
-    if (f) {
-        size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
-        analysis[bytesRead] = '\0';
-        fclose(f);
-    }
+    // Load file (reuse your loading code here)
+	char analysis[2048] = {0};
+	const char* home = getenv("HOME");
+	if (home) {
+		std::string path = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
+		FILE* f = fopen(path.c_str(), "r");  // f is declared here
+		if (f) {
+			size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+			analysis[bytesRead] = '\0';
+			fclose(f);
+		}
+	}
 
     std::vector<std::string> lines = wrapText(analysis, 75);
 
