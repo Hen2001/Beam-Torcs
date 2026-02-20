@@ -783,13 +783,16 @@ static void clearDrivingData()
     if (!homeDir) return;
 
     std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-	remove((dataDir + "/granite_analysis.txt").c_str());
+	
 
     const char* files[] = {
         "track_pos.json",
         "speed.json",
 		"end_statistics.json",
 		"segment_times.json",
+		"live_data.json",
+		"live_coaching_data.json",
+		"granite_analysis.txt",
         // "inputs.json",
         NULL  
     };
@@ -811,6 +814,8 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 
 void newrace(int index, tCarElt* car, tSituation *s)
 {
+	clearDrivingData();
+	
 	if (coach) {
         // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
 		std::string cmd = "python3 " + 
@@ -828,7 +833,6 @@ void newrace(int index, tCarElt* car, tSituation *s)
 	lapCount = 0;
 	totalSpeed = 0.0;    
     speedSamples = 0; 
-	clearDrivingData();
 	if(speedOut.is_open()) speedOut.close();
     if(trackOut.is_open()) trackOut.close();
 	statsWritten = false;
