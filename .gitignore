@@ -1,5 +1,28 @@
 # --- Compiled Binaries & Objects ---
 *.o
+<<<<<<< HEAD
+=======
+*.obj
+
+# Precompiled Headers
+*.gch
+*.pch
+*.venv
+venv
+.venv
+# Compiled Dynamic libraries
+*.so
+*.dylib
+*.dll
+
+# Fortran module files
+*.mod
+*.smod
+
+# Compiled Static libraries
+*.lai
+*.la
+>>>>>>> 6ceaa46 (git)
 *.a
 *.so
 *.lo
