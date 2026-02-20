@@ -125,8 +125,32 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 #include <unistd.h>
 #include <limits.h>
 #include <sys/stat.h>
+<<<<<<< Race-Engineer
+#include <curl/curl.h>
+
+static void sendVoiceRequest(const char* endpoint)
+{
+    CURL* curl = curl_easy_init();
+    if (!curl) return;
+
+    std::string url = std::string("http://localhost:5000/") + endpoint;
+    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
+    curl_easy_setopt(curl, CURLOPT_POST, 1L);
+    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
+    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 200L);  // 200ms max
+
+    CURLcode res = curl_easy_perform(curl);
+    if (res == CURLE_OK) {
+        printf("[RaceEngineer] Sent /%s to Flask\n", endpoint);
+    } else {
+        printf("[RaceEngineer] Failed to send /%s: %s\n", endpoint, curl_easy_strerror(res));
+    }
+    curl_easy_cleanup(curl);
+}
+=======
 static std::ofstream speedOut;
 static std::ofstream trackOut;
+>>>>>>> Race-Engineer-On-Off
 
 static void printPerformanceReport()
 {
@@ -1418,6 +1442,20 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logLiveCommentary(car, s);
 	logLiveCoaching(car, s);
 
+		// Push to talk — hold R to record, release to send
+	static bool pttActive = false;
+
+	if (currentKey['r'] == GFUI_KEY_DOWN && !pttActive) {
+		pttActive = true;
+		printf("[RaceEngineer] PTT pressed — starting recording\n");
+		sendVoiceRequest("start");
+	}
+	if (currentKey['r'] == GFUI_KEY_UP && pttActive) {
+		pttActive = false;
+		printf("[RaceEngineer] PTT released — sending to Granite\n");
+		sendVoiceRequest("stop");
+	}
+
 #ifndef WIN32
 #ifdef TELEMETRY
 	if ((car->_laps > 1) && (car->_laps < 5)) {
@@ -1458,6 +1496,8 @@ if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
     HCtx[idx]->lap = car->_laps;
 	
 }
+
+
 
 
 static tdble getAutoClutch(int idx, int gear, int newgear, tCarElt *car)
