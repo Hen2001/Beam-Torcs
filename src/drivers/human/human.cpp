@@ -294,7 +294,7 @@ if (speedOut.is_open()) {
   
 	if (analysis)
 	{
-		system("sleep 3 && python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
+		system("sleep 3 && python3 /home/lewis/Beam-Torcs/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &");
 	}
 	
 	int	idx = index - 1;
@@ -810,10 +810,10 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 void newrace(int index, tCarElt* car, tSituation *s)
 {
 	if (coach) {
-        system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
+        system("python3 /home/lewis/Beam-Torcs/src/Granite/liveCoach.py &");
     }
     if (commentary) {
-        system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+        system("python3 /home/lewis/Beam-Torcs/src/Granite/liveComs.py &");
     }
 	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));

@@ -571,7 +571,7 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 	}
 GfuiButtonCreate(rmScrHdle,
                  "View Granite Analysis",
-                 GFUI_FONT_MEDIUM_C,
+                 GFUI_FONT_LARGE_C,
                  320,
                  60,
                  250,
