@@ -311,6 +311,9 @@ if (speedOut.is_open()) {
     if (commentary) {
         system("pkill -9 -f liveComs.py");
     }
+	if (engineer){
+		system("pkill -9 -f race_engineer.py")
+	}
 	printPerformanceReport();
   
 	if (analysis)
@@ -847,6 +850,12 @@ void newrace(int index, tCarElt* car, tSituation *s)
         // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
 			std::string cmd = "python3 " + 
                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
+		system(cmd.c_str());
+    }
+	if (engineer) {
+        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+			std::string cmd = "python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
 		system(cmd.c_str());
     }
 	prevRemainingLaps = -1;

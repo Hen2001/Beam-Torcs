@@ -2,10 +2,11 @@
 #include "featuresMenu.h"
 #include "AiFeatures.h"
 
-static void *featuresHandle = NULL;
-static int   analysisButtonId   = -1;
-static int   commentaryButtonId = -1;
-static int   coachButtonId      = -1;
+static void *featuresHandle    = NULL;
+static int   analysisButtonId  = -1;
+static int commentaryButtonId  = -1;
+static int      coachButtonId  = -1;
+static int   engineerButtonId  = -1;
 
 static void ToggleAnalysis(void *unused)
 {
@@ -37,6 +38,16 @@ static void ToggleCoach(void *unused)
     );
 }
 
+static void ToggleEngineer(void *unused)
+{
+    engineer = !engineer;
+    GfuiButtonSetText(
+        featuresHandle,
+        engineerButtonId,  // was wrongly using coachButtonId
+        engineer ? "Race Engineer: ON" : "Race Engineer: OFF"
+    );
+}
+
 void* FeaturesMenuInit(void *prevMenu)
 {
     if (featuresHandle) return featuresHandle;
@@ -46,26 +57,34 @@ void* FeaturesMenuInit(void *prevMenu)
 
     analysisButtonId = GfuiMenuButtonCreate(
         featuresHandle,
-        analysis ? "Granite AI Coach: ON" : "Granite AI Coach: OFF",
-        "Enable or disable Granite AI Coach",
+        analysis ? "Granite Analysis: ON" : "Granite Analysis: OFF",
+        "Enable or disable Granite Analysis",
         NULL,
         ToggleAnalysis
     );
 
     commentaryButtonId = GfuiMenuButtonCreate(
         featuresHandle,
-        commentary ? "Feature 2 (Commentary): ON" : "Feature 2 (Commentary): OFF",
-        "Enable or disable Commentary",
+        commentary ? "Live Commentary: ON" : "Live Commentary: OFF",
+        "Enable or disable Live Commentary",
         NULL,
         ToggleCommentary
     );
 
     coachButtonId = GfuiMenuButtonCreate(
         featuresHandle,
-        coach ? "Feature 3 (Coach): ON" : "Feature 3 (Coach): OFF",
-        "Enable or disable Coach",
+        coach ? "Granite Live Coach: ON" : "Granite Live Coach: OFF",
+        "Enable or disable Granite Live Coach",
         NULL,
         ToggleCoach
+    );
+
+    engineerButtonId = GfuiMenuButtonCreate(
+        featuresHandle,
+        engineer ? "Race Engineer: ON" : "Race Engineer: OFF",
+        "Enable or disable Race Engineer",
+        NULL,
+        ToggleEngineer
     );
 
     GfuiMenuBackQuitButtonCreate(
