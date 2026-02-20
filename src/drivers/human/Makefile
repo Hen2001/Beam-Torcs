@@ -15,7 +15,6 @@
 #
 ##############################################################################
 
-
 ROBOT = human
 
 MODULE    = ${ROBOT}.so
@@ -40,4 +39,7 @@ src_PKGDIR	= ${PACKAGE}-${VERSION}/$(subst ${TORCS_BASE},,$(shell pwd))
 
 include ${MAKE_DEFAULT}
 
-
+# ADD THIS AFTER including MAKE_DEFAULT
+# Get the TORCS source root path
+TORCS_ROOT := $(shell while [ ! -f configure.ac ] && [ ! -d .git ] && [ `pwd` != "/" ]; do cd ..; done; pwd)
+CXXFLAGS += -DTORCS_SOURCE_DIR=\"$(TORCS_ROOT)\"

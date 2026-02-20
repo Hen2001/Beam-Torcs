@@ -4,7 +4,7 @@
 *.so
 *.lo
 *.la
-.libs/
+
 .deps/
 .venv
 # Ignore hidden .depend files recursively
@@ -33,7 +33,7 @@ venv
 .venv
 # --- Source Specific Ignores ---
 # Ignore libs folders inside src or subfolders
-**/libs/
+
 
 # --- IDE & System Files ---
 .vscode/

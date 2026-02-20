@@ -23,8 +23,9 @@
     @version	$Id: grscreen.cpp,v 1.22.2.5 2012/06/09 11:44:46 berniw Exp $
 */
 
-#include <plib/ssg.h>
 
+#include <plib/ssg.h>
+#include <ctime>
 #include <tgfclient.h>
 #include <portability.h>
 #include "grutil.h"
@@ -39,8 +40,12 @@
 #include "grscreen.h"
 #include <GL/glut.h>
 #include <string>
+#include "AiFeatures.h"
 
 std::string chatbotMessage = "Waiting for AI...";
+std::string aiCommentary = "AI Commentary Loading...";
+std::string aiCoaching = "AI Coaching Loading...";
+
 int telemetryHudEnabled = 1;   // default ON
 // --- Segment timing state ---
 static const char* SEGMENT_NAMES[10] = {
@@ -65,6 +70,8 @@ static double seg_lastTime      = 0.0;
 static double seg_prevLapTimes[10] = {0.0};
 // Per-segment time being accumulated for the current lap
 static double seg_currentLapTimes[10] = {0.0};
+
+
 
 cGrScreen::cGrScreen(int myid)
 {
@@ -467,9 +474,94 @@ void drawChatPanel()
 }
 
 
+void LiveCommentary()
+{
+    static double lastCheck = 0.0;
+    double now = time(nullptr);
+    if (now - lastCheck < 0.5) return;
+    lastCheck = now;
 
+    FILE* f = fopen("/tmp/live_commentary.txt", "r");
+    if (!f) return;
 
+    char buf[512];
+    if (fgets(buf, sizeof(buf), f)) {
+        buf[strcspn(buf, "\n")] = 0;
+        aiCommentary = std::string(buf);  
+    }
+    fclose(f);
+}
+void drawCommentaryBox()
+{
+    float left   = 250.0f;
+    float width  = 600.0f;
+    float height = 30.0f;
+    float top    = 598.0f;   // near top of screen
+    float bottom = top - height;
+    float right  = left + width;
 
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Dark red background for commentary feel
+    glColor4f(0.4f, 0.0f, 0.0f, 0.7f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    glColor3f(1.0f, 1.0f, 0.2f);  // yellow text
+    drawBitmapText(aiCommentary.c_str(), left + 10, bottom + 10);
+}
+
+void LiveCoaching()
+{
+    static double lastCheck = 0.0;
+    double now = time(nullptr);
+    if (now - lastCheck < 0.5) return;
+    lastCheck = now;
+
+    std::string path = std::string(getenv("HOME")) + "/.torcs/live_coaching.txt";
+    FILE* f = fopen(path.c_str(), "r");
+    if (!f) return;
+
+    char buf[512];
+    if (fgets(buf, sizeof(buf), f)) {
+        buf[strcspn(buf, "\n")] = 0;
+        aiCoaching = std::string(buf);
+    }
+    fclose(f);
+}
+void drawCoachingBox()
+{
+    float left   = 250.0f;
+    float width  = 600.0f;
+    float height = 30.0f;
+    float top    = 598.0f;   // near top of screen
+    float bottom = top - height;
+    float right  = left + width;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    // Dark red background for commentary feel
+    glColor4f(0.4f, 0.0f, 0.0f, 0.7f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    glColor3f(1.0f, 1.0f, 0.2f);  // yellow text
+    drawBitmapText(aiCoaching.c_str(), left + 10, bottom + 10);
+}
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
 {
@@ -554,10 +646,22 @@ void cGrScreen::update(tSituation *s, float Fps)
 	
 	TRACE_GL("cGrScreen::update glDisable(GL_DEPTH_TEST)");
 	board->refreshBoard(s, Fps, 0, curCar);
-	// if (telemetryHudEnabled) {
-    // 	updateTelemetryMessage(curCar, s);
-    // 	drawChatPanel();
-	// }
+	if (telemetryHudEnabled) {
+		if (commentary){
+			LiveCommentary();
+		}
+		if (coach){
+			LiveCoaching();
+		}
+    	updateTelemetryMessage(curCar, s);
+    	drawChatPanel();
+		if (commentary){
+			drawCommentaryBox(); 
+		}
+		if (coach){
+			drawCoachingBox();
+		}
+	}
 
 	TRACE_GL("cGrScreen::update display boards");
 	

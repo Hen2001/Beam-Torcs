@@ -34,9 +34,18 @@
 #include <robottools.h>
 #include <robot.h>
 #include <portability.h>
+#include <sys/stat.h>
+#include <unistd.h>
+#include <cstring>
+#include <vector>
+#include <string>
+std::vector<std::string> wrapText(const char* text, int maxLineLength);
+std::string insertKeywordBreaks(const std::string& input);
 
 static int	rmSaveId;
 static void	*rmScrHdle = NULL;
+static bool responseBot = true;
+static void *featuresScr = NULL;
 
 static void rmPracticeResults(void *prevHdle, tRmInfo *info, int start);
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start);
@@ -62,6 +71,85 @@ static void rmSaveRes(void *vInfo)
 	GfParmCreateDirectory(0, info->results);
 	GfParmWriteFile(0, info->results, "Results");
 	GfuiVisibilitySet(rmScrHdle, rmSaveId, GFUI_INVISIBLE);
+}
+
+static void toggleResponseBot(void *unused)
+{
+    responseBot = !responseBot;
+
+    printf("ResponseBot is now: %s\n", responseBot ? "ON" : "OFF");
+}
+static void rmFeaturesScreen(void *prevHdle)
+{
+    featuresScr = GfuiScreenCreate();
+
+    GfuiScreenAddBgImg(featuresScr, "data/img/splash-result.png");
+    GfuiTitleCreate(featuresScr, "Features", 8);
+
+    // ---- Toggle Button Text ----
+    const char* label = responseBot ?
+        "Granite AI Coach: ON" :
+        "Granite AI Coach: OFF";
+
+    GfuiButtonCreate(featuresScr,
+                     label,
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     320,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     toggleResponseBot,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    // ---- Placeholder Buttons ----
+    GfuiButtonCreate(featuresScr,
+                     "Future Feature 2",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     260,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    GfuiButtonCreate(featuresScr,
+                     "Future Feature 3",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     200,
+                     300,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    // ---- Back Button ----
+    GfuiButtonCreate(featuresScr,
+                     "Back",
+                     GFUI_FONT_MEDIUM_C,
+                     320,
+                     60,
+                     200,
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     prevHdle,
+                     GfuiScreenReplace,
+                     NULL,
+                     NULL,
+                     NULL);
+
+    GfuiScreenActivate(featuresScr);
 }
 
 
@@ -206,6 +294,125 @@ static void rmChgRaceScreen(void *vprc)
 }
 
 
+
+std::string insertKeywordBreaks(const std::string& input)
+{
+    std::string text = input;
+
+    const std::vector<std::string> keywords = {
+        "Speed:",
+        "Specific Coaching Focus:"
+    };
+
+    for (const auto& key : keywords) {
+        size_t pos = 0;
+        while ((pos = text.find(key, pos)) != std::string::npos) {
+            if (pos != 0 && text[pos - 1] != '\n') {
+                text.insert(pos, "\n");
+                pos += 1;
+            }
+            pos += key.length();
+        }
+    }
+
+    return text;
+}
+
+std::vector<std::string> wrapText(const char* text, int maxLineLength)
+{
+    std::vector<std::string> lines;
+
+    std::string processed = insertKeywordBreaks(text);
+
+    size_t start = 0;
+    while (start < processed.length()) {
+
+        size_t end = processed.find('\n', start);
+        std::string segment;
+
+        if (end == std::string::npos) {
+            segment = processed.substr(start);
+            start = processed.length();
+        } else {
+            segment = processed.substr(start, end - start);
+            start = end + 1;
+        }
+
+        while (segment.length() > maxLineLength) {
+            int breakPos = segment.rfind(' ', maxLineLength);
+            if (breakPos == std::string::npos)
+                breakPos = maxLineLength;
+
+            lines.push_back(segment.substr(0, breakPos));
+            segment = segment.substr(breakPos + 1);
+        }
+
+        if (!segment.empty())
+            lines.push_back(segment);
+    }
+
+    return lines;
+}
+
+//----------------------------
+static void rmGraniteAnalysis(void *prevHdle)
+{
+    void *analysisScr = GfuiScreenCreate();
+
+    GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
+
+    GfuiTitleCreate(analysisScr, "Granite AI Coach", 18);
+
+    // Load file (reuse your loading code here)
+    // Load file (reuse your loading code here)
+	char analysis[2048] = {0};
+	const char* home = getenv("HOME");
+	if (home) {
+		std::string path = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
+		FILE* f = fopen(path.c_str(), "r");  // f is declared here
+		if (f) {
+			size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+			analysis[bytesRead] = '\0';
+			fclose(f);
+		}
+	}
+
+    std::vector<std::string> lines = wrapText(analysis, 75);
+
+    int yPos = 420;
+
+    for (size_t i = 0; i < lines.size(); i++) {
+        GfuiLabelCreate(analysisScr,
+                        lines[i].c_str(),
+                        GFUI_FONT_MEDIUM_C,
+                        60, yPos,
+                        GFUI_ALIGN_HL_VB,
+                        0);
+
+        yPos -= 18;
+    }
+
+    // Back button
+    GfuiButtonCreate(analysisScr,
+                 "Back to Results",
+                 GFUI_FONT_MEDIUM_C,
+                 320,
+                 40,
+                 200,
+                 GFUI_ALIGN_HC_VB,
+                 0,                  // shortcut key
+                 prevHdle,           // user data
+                 GfuiScreenReplace,  // callback
+                 NULL,
+                 NULL,
+                 NULL);
+
+
+    GfuiScreenActivate(analysisScr);
+}
+
+//-----------------------------
+
 static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 {
 	void *results = info->results;
@@ -315,6 +522,47 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 		y -= 15;
 	}
 
+// 	char analysis[2048] = {0};
+// const char* filepath = "/home/lewis/.torcs/DrivingData/granite_analysis.txt";
+// int attempts = 0;
+// while (attempts < 60) {   // wait up to ~10 seconds
+//     struct stat st;
+// 	printf("Waiting for analysis... attempt %d\n", attempts);
+
+//     if (stat(filepath, &st) == 0 && st.st_size > 0) {
+//         break;  // file exists and has content
+//     }
+//     sleep(1);
+//     attempts++;
+// }
+// printf("Finished waiting. Attempts: %d\n", attempts);
+
+// FILE* f = fopen(filepath, "r");
+// if (f) {
+//     size_t bytesRead = fread(analysis, 1, sizeof(analysis) - 1, f);
+//     analysis[bytesRead] = '\0';   // ensure null termination
+//     fclose(f);
+// } else {
+//     strcpy(analysis, "Granite AI Coach analysis unavailable.");
+// }
+
+
+// 	std::vector<std::string> lines = wrapText(analysis, 100);
+
+// int yPos = 350;   // starting height (move up here)
+
+// for (size_t i = 0; i < lines.size(); i++) {
+//     GfuiLabelCreate(rmScrHdle,
+//                     lines[i].c_str(),
+//                     GFUI_FONT_MEDIUM_C,
+//                     320, yPos,
+//                     GFUI_ALIGN_HC_VB,
+//                     0);
+
+//     yPos -= 18;  // spacing between lines
+// }
+
+
 	if (start > 0) {
 		RmPrevRace.prevHdle = prevHdle;
 		RmPrevRace.info     = info;
@@ -326,6 +574,20 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 				NULL, (tfuiCallback)NULL, (tfuiCallback)NULL);
 		GfuiAddSKey(rmScrHdle, GLUT_KEY_PAGE_UP,   "Previous Results", (void*)&RmPrevRace, rmChgRaceScreen, NULL);
 	}
+GfuiButtonCreate(rmScrHdle,
+                 "View Granite Analysis",
+                 GFUI_FONT_MEDIUM_C,
+                 320,
+                 60,
+                 250,
+                 GFUI_ALIGN_HC_VB,
+                 0,                     // shortcut
+                 rmScrHdle,             // pass current screen
+                 rmGraniteAnalysis,     // callback
+                 NULL,
+                 NULL,
+                 NULL);
+
 
 	GfuiButtonCreate(rmScrHdle,
 			"Continue",

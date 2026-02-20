@@ -35,4 +35,5 @@ src_PKGDIR	= ${PACKAGE}-${VERSION}/$(subst ${TORCS_BASE},,$(shell pwd))
 
 include ${MAKE_DEFAULT}
 
+noinst_HEADERS = featureflags.h
 
