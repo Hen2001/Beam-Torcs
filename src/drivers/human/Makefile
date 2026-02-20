@@ -21,7 +21,7 @@ MODULE    = ${ROBOT}.so
 
 MODULEDIR = drivers/${ROBOT}
 
-LIBS      =  -lplibul -lcurl
+LIBS      =  -lplibul
 
 SOURCES   = ${ROBOT}.cpp pref.cpp
 
