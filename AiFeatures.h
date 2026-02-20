@@ -4,7 +4,8 @@
 
 inline bool coach      = false;
 inline bool commentary = false;
-inline bool analysis   = true;
+inline bool analysis   = false;
+inline bool engineer = true;
 
 
 
