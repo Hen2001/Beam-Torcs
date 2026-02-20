@@ -92,7 +92,9 @@ def generate_commentary(data):
         now = time.time()
         if now - last_corkscrew_time >= 60:
             last_corkscrew_time = now
-            if speed > 100:
+            if speed < 0:
+                return f"He's going the wrong way through the corkscrew!"
+            elif speed > 100:
                 return f"He's approaching the corkscrew at a speed of {speed}km/h, will he make it?"
             elif speed < 90:
                 return f"They've slowed down for the corkscrew, crawling through at just {speed}km/h."
@@ -100,6 +102,8 @@ def generate_commentary(data):
                 return f"Carefully through the corkscrew at {speed}km/h!"
 
     # Insane speed
+    if speed > 300:
+        return f"300KM/H! Absolutely unreal speed in sector {sector}!"
     if speed > 270:
         lines = [
             f"UNBELIEVABLE! {speed}km/h through sector {sector}, this is absolute madness!",
@@ -154,6 +158,9 @@ while True:
                 data = json.load(f)
             commentary = generate_commentary(data)
             print(f"\n[LIVE]: {commentary}")
+            # ADD THIS:
+            with open("/tmp/live_commentary.txt", "w") as f:
+                f.write(commentary)
             last_mtime = current_mtime
     except Exception as e:
         print(e)
