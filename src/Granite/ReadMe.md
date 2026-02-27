@@ -2,7 +2,7 @@
 
 ## Package Installs -
 
-### End-of-Race Granite Lap Analysis & Feedback (analyse.py)
+### Granite Analysis/Coaching/Commentator (analyse.py/liveCoach.py/liveComs.py)
 
 *virtual environment setup*
 
@@ -15,6 +15,8 @@ python3 -m venv .venv
 pip install transformers torch accelerate
 
 pip install --upgrade transformers 
+
+pip install protobuf - 
 
 make
 
