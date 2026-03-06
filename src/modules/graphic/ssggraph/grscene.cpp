@@ -48,14 +48,14 @@
 #include "grutil.h"
 #include "grssgext.h"
 #include "grtexture.h"
-
+#include <string> 
 
 int grWrldX;
 int grWrldY;
 int grWrldZ;
 int grWrldMaxSize;
 tTrack 	 *grTrack;
-
+extern tTrack *curTrack;
 ssgStateSelector	*grEnvSelector;
 grMultiTexState	*grEnvState=NULL;
 grMultiTexState	*grEnvShadowState=NULL;
@@ -221,7 +221,11 @@ float bz = grTrack->seg->vertex[TR_SL].z + 100.0f;
     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
 
    
-    ssgState *st = grSsgLoadTexStateEx("John.png", "/home/lewis/Beam-Torcs;data/textures;data/img;.", FALSE, FALSE);
+    std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
+
+ssgState *st = grSsgLoadTexStateEx("John.png",
+                                    const_cast<char*>(texDir.c_str()),
+                                    FALSE, FALSE);
     if (!st) {
         GfOut("grAddSideBanner: failed to load banner texture\n");
         return;
@@ -295,11 +299,15 @@ void grAddSideBanner2(void)
 
     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
 
-    ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png", "/home/lewis/Beam-Torcs;data/textures;data/img;.", FALSE, FALSE);
-    if (!st) {
+  if (strcmp(grTrack->internalname, "corkscrew") == 0) {
+    std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
+    ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png",
+                                        const_cast<char*>(texDir.c_str()),
+                                        FALSE, FALSE);
+   if (!st) {
         GfOut("grAddSideBanner: failed to load banner texture\n");
         return;
-    }
+}
     ((ssgSimpleState*)st)->setShininess(0);
     ((ssgSimpleState*)st)->disable(GL_LIGHTING);
 
@@ -307,6 +315,8 @@ void grAddSideBanner2(void)
     banner->setCullFace(0);
 
     LandAnchor->addKid(banner);
+    }
+    printf("Track internal name: %s\n", grTrack->internalname);
 }
 static ssgLoaderOptionsEx	options;
 
