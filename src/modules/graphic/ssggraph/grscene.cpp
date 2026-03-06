@@ -221,22 +221,22 @@ float bz = grTrack->seg->vertex[TR_SL].z + 100.0f;
     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
 
    
-    std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
+//     std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
 
-ssgState *st = grSsgLoadTexStateEx("John.png",
-                                    const_cast<char*>(texDir.c_str()),
-                                    FALSE, FALSE);
-    if (!st) {
-        GfOut("grAddSideBanner: failed to load banner texture\n");
-        return;
-    }
-    ((ssgSimpleState*)st)->setShininess(0);
-    ((ssgSimpleState*)st)->disable(GL_LIGHTING);  
+// ssgState *st = grSsgLoadTexStateEx("John.png",
+//                                     const_cast<char*>(texDir.c_str()),
+//                                     FALSE, FALSE);
+//     if (!st) {
+//         GfOut("grAddSideBanner: failed to load banner texture\n");
+//         return;
+//     }
+    // ((ssgSimpleState*)st)->setShininess(0);
+    // ((ssgSimpleState*)st)->disable(GL_LIGHTING);  
 
-    banner->setState(st);
-    banner->setCullFace(0);  // visible from both sides
+    // banner->setState(st);
+    // banner->setCullFace(0);  // visible from both sides
 
-    LandAnchor->addKid(banner);
+    // LandAnchor->addKid(banner);
 }
 
 void grAddSideBanner2(void)
@@ -300,7 +300,7 @@ void grAddSideBanner2(void)
     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
 
   if (strcmp(grTrack->internalname, "corkscrew") == 0) {
-    std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
+    std::string texDir = std::string(TORCS_SOURCE_DIR);
     ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png",
                                         const_cast<char*>(texDir.c_str()),
                                         FALSE, FALSE);
