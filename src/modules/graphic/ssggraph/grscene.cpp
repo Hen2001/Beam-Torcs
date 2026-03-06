@@ -227,7 +227,7 @@ float bz = grTrack->seg->vertex[TR_SL].z + 100.0f;
         return;
     }
     ((ssgSimpleState*)st)->setShininess(0);
-    ((ssgSimpleState*)st)->disable(GL_LIGHTING);  // makes it fullbright, remove if you want shading
+    ((ssgSimpleState*)st)->disable(GL_LIGHTING);  
 
     banner->setState(st);
     banner->setCullFace(0);  // visible from both sides
