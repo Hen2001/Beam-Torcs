@@ -560,6 +560,7 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
                  << "\"distToStart\":" << car->_trkPos.toStart << ","
                  << "\"damage\":" << car->_dammage << ","
                  << "\"trackPos\":" << car->_trkPos.toMiddle << ","
+				 << "\"place\":" << car->Place << ","
 				 << "\"Segment\":" << car->_trkPos.seg->id  << ""
                  << "}";
         liveFile.close();
