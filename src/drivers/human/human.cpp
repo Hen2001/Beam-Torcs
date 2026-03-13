@@ -65,7 +65,7 @@ static int  pitcmd(int index, tCarElt* car, tSituation *s);
 
 int joyPresent = 0;
 //bool responseBot = 0;
-static tTrack	*curTrack;
+ tTrack	*curTrack;
 
 static float color[] = {0.0, 0.0, 1.0, 1.0};
 
