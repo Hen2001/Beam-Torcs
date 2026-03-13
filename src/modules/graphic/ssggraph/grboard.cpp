@@ -901,7 +901,7 @@ void cGrBoard::refreshBoard(tSituation *s, float Fps, int forceArcade, tCarElt *
 	}
 
 	
-	// Position display, top right, always visible
+
 const int BUFSIZE_POS = 32;
 char posbuf[BUFSIZE_POS];
 snprintf(posbuf, BUFSIZE_POS, "#%d", curr->_pos);
