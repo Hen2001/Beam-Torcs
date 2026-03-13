@@ -2,27 +2,59 @@
 
 import json
 import os
+import time
 import wave
-import torch
-import whisper
-import threading
 import subprocess
+import threading
+import torch
+import pyaudio
+import whisper
 from pynput import keyboard as kb
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-# ── Environment setup (must be before any audio initialisation) ───────────────
-# os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
+# ── Environment (must be set before any audio initialisation) ─────────────────
+os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
 os.environ["DISPLAY"]      = os.environ.get("DISPLAY", ":0")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
 STATS_PATH = os.path.join(DATA_DIR, "end_statistics.json")
 SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
-RAW_PATH   = "/tmp/torcs_question.raw"
 WAV_PATH   = "/tmp/torcs_question.wav"
 
-SAMPLE_RATE = 16000
-CHANNELS    = 1
+SAMPLE_RATE   = 16000
+CHANNELS      = 1
+CHUNK         = 1024
+SAMPLE_FORMAT = pyaudio.paInt16
+
+# ── PulseAudio keepalive ──────────────────────────────────────────────────────
+def ensure_pulse():
+    """Check PulseAudio is alive, attempt restart if not."""
+    result = subprocess.run(
+        ["pactl", "--server=unix:/mnt/wslg/PulseServer", "info"],
+        capture_output=True
+    )
+    if result.returncode == 0:
+        print("[RaceEngineer] Audio OK.")
+        return
+
+    print("[RaceEngineer] PulseAudio not responding, attempting restart...")
+    subprocess.run(
+        ["pulseaudio", "--start", "--daemonize=true", "--exit-idle-time=-1"],
+        capture_output=True
+    )
+    time.sleep(2)
+
+    result = subprocess.run(
+        ["pactl", "--server=unix:/mnt/wslg/PulseServer", "info"],
+        capture_output=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "[RaceEngineer] Audio unavailable.\n"
+            "Run 'wsl --shutdown' in Windows PowerShell, reopen WSL, then start TORCS again."
+        )
+    print("[RaceEngineer] Audio restarted successfully.")
 
 # ── Load models ───────────────────────────────────────────────────────────────
 print("Loading Whisper...")
@@ -38,17 +70,20 @@ granite    = AutoModelForCausalLM.from_pretrained(
 )
 granite.eval()
 
-# ── Recording ─────────────────────────────────────────────────────────────────
-def raw_to_wav(raw_path, wav_path, sample_rate=SAMPLE_RATE, channels=CHANNELS):
-    """Wrap raw PCM s16le data in a proper WAV header for Whisper."""
-    with open(raw_path, "rb") as f:
-        raw_data = f.read()
-    with wave.open(wav_path, "wb") as wf:
-        wf.setnchannels(channels)
-        wf.setsampwidth(2)  # s16le = 2 bytes per sample
-        wf.setframerate(sample_rate)
-        wf.writeframes(raw_data)
+# ── Audio device ──────────────────────────────────────────────────────────────
+def get_pulse_device_index(pa):
+    """Find the PulseAudio input device index."""
+    for i in range(pa.get_device_count()):
+        d = pa.get_device_info_by_index(i)
+        if d['name'] == 'pulse' and d['maxInputChannels'] > 0:
+            return i
+    raise RuntimeError(
+        "PulseAudio input device not found.\n"
+        "Ensure PULSE_SERVER is set and WSLg is running.\n"
+        "If this keeps failing, run 'wsl --shutdown' from Windows PowerShell and restart."
+    )
 
+# ── Recording ─────────────────────────────────────────────────────────────────
 def record_question(key="r"):
     pressed  = threading.Event()
     released = threading.Event()
@@ -70,34 +105,37 @@ def record_question(key="r"):
     listener = kb.Listener(on_press=on_press, on_release=on_release)
     listener.start()
 
+    pa         = pyaudio.PyAudio()
+    device_idx = get_pulse_device_index(pa)
+
+    stream = pa.open(
+        format=SAMPLE_FORMAT,
+        channels=CHANNELS,
+        rate=SAMPLE_RATE,
+        input=True,
+        input_device_index=device_idx,
+        frames_per_buffer=CHUNK
+    )
+
     print("[RaceEngineer] Waiting for R key...")
     pressed.wait()
     print("[RaceEngineer] Recording...")
 
-    # Record raw PCM — parecord writes clean s16le with these flags
-    proc = subprocess.Popen(
-        [
-            "parecord",
-            "--channels=1",
-            "--rate=16000",
-            "--format=s16le",
-            "--raw",
-            RAW_PATH
-        ],
-        stdout=None,
-        stderr=None
-    )
-
-    released.wait()
-    proc.terminate()
-    proc.wait()
+    frames = []
+    while not released.is_set():
+        frames.append(stream.read(CHUNK, exception_on_overflow=False))
 
     print("[RaceEngineer] Done recording.")
     listener.stop()
+    stream.stop_stream()
+    stream.close()
+    pa.terminate()
 
-    # Convert raw PCM to WAV for Whisper
-    raw_to_wav(RAW_PATH, WAV_PATH)
-    os.remove(RAW_PATH)
+    with wave.open(WAV_PATH, "wb") as wf:
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(2)  # paInt16 = 2 bytes
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(b"".join(frames))
 
     return WAV_PATH
 
@@ -125,10 +163,14 @@ def load_race_context():
 
 def build_prompt(question, context):
     stats = context.get("stats", {})
+    fuel  = context.get('fuel', None)
+    fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
+
     return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only.
 
 LIVE TELEMETRY:
 - Speed: {context.get('speed_kmh', 0):.1f} km/h | Gear: {context.get('gear', 'N/A')} | RPM: {context.get('rpm', 0):.0f}
+- Fuel remaining: {fuel_str}
 - Car damage: {context.get('damage', 0)} / 10000
 - Nearest opponent: {context.get('opponent_gap', 200):.1f}m
 - Distance raced: {context.get('dist_raced', 0):.0f}m
@@ -164,9 +206,15 @@ def speak(text):
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
+    ensure_pulse()
     print("[RaceEngineer] Ready. Hold R to ask a question.")
     while True:
         wav      = record_question(key="r")
+        
+        # DEBUG: keep a copy to inspect
+        import shutil
+        shutil.copy(wav, "/tmp/debug_last.wav")
+        
         result   = whisper_model.transcribe(wav)
         question = result["text"].strip()
         os.remove(wav)
