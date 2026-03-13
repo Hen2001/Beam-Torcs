@@ -384,10 +384,11 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	
 	y = Winy + Winh - dy - 5;
 	
-	snprintf(buf, BUFSIZE, "%d/%d - %s", car->_pos, s->_ncars, car->_name);
+	//snprintf(buf, BUFSIZE, "%d/%d - %s", car->_pos, s->_ncars, car->_name);
+	snprintf(buf, BUFSIZE, car->_name);
 	dx = GfuiFontWidth(GFUI_FONT_MEDIUM_C, buf);
 	dx = MAX(dx, (x3-x));
-	lines = 10;
+	lines = 8;
 	for (i = 0; i < 4; i++) {
 		if (car->ctrl.msg[i]) {
 			lines++;
@@ -408,17 +409,17 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	GfuiPrintString(buf, grCarInfo[car->index].iconColor, GFUI_FONT_MEDIUM_C, x, y, GFUI_ALIGN_HL_VB);
 	y -= dy;
 	
-	dy = GfuiFontHeight(GFUI_FONT_SMALL_C);
+	// dy = GfuiFontHeight(GFUI_FONT_SMALL_C);
 	
-	GfuiPrintString("Fuel:", grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	if (car->_fuel < 5.0) {
-		clr = grRed;
-	} else {
-		clr = grWhite;
-	}
-	snprintf(buf, BUFSIZE, "%.1f l", car->_fuel);
-	GfuiPrintString(buf, clr, GFUI_FONT_SMALL_C, x2, y, GFUI_ALIGN_HR_VB);
-	y -= dy;
+	// GfuiPrintString("Fuel:", grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+	// if (car->_fuel < 5.0) {
+	// 	clr = grRed;
+	// } else {
+	// 	clr = grWhite;
+	// }
+	// snprintf(buf, BUFSIZE, "%.1f l", car->_fuel);
+	// GfuiPrintString(buf, clr, GFUI_FONT_SMALL_C, x2, y, GFUI_ALIGN_HR_VB);
+	// y -= dy;
 	
 	clr = grWhite;
 	
@@ -432,12 +433,6 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	grWriteTime(clr, GFUI_FONT_SMALL_C, x3, y, car->_deltaBestLapTime, 1);
 	y -= dy;
 	
-	GfuiPrintString("Time:", clr, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	if (!car->_commitBestLapTime) {
-		clr = grRed;
-	}
-	grWriteTime(clr, GFUI_FONT_SMALL_C, x2, y, car->_curLapTime, 0);    
-	y -= dy;
 	clr = grWhite;
 	
 	GfuiPrintString("Penalty:", clr, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
@@ -472,12 +467,12 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	}
 	y -= dy;
 
-	for (i = 0; i < 4; i++) {
-		if (car->ctrl.msg[i]) {
-			GfuiPrintString(car->ctrl.msg[i], car->ctrl.msgColor, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-			y -= dy;
-		}
-	}
+	// for (i = 0; i < 4; i++) {
+	// 	if (car->ctrl.msg[i]) {
+	// 		GfuiPrintString(car->ctrl.msg[i], car->ctrl.msgColor, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+	// 		y -= dy;
+	// 	}
+	// }
 	updateTelemetryMessage(car, s);
 
 std::string msg = chatbotMessage;
@@ -495,6 +490,18 @@ if (nl != std::string::npos) {
     GfuiPrintString(msg.c_str(), grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
     y -= dy;
 }
+
+
+	GfuiPrintString("- - - - - - - - - - - - - - - - - - - - - - - -", grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
+	y -= dy;
+
+	GfuiPrintString("Time:", clr, GFUI_FONT_MEDIUM_C, x, y, GFUI_ALIGN_HL_VB);
+	if (!car->_commitBestLapTime) {
+		clr = grRed;
+	}
+	grWriteTime(clr, GFUI_FONT_MEDIUM_C, x2, y, car->_curLapTime, 0);
+	y -= dy;
+	clr = grWhite;
 }
 
 void
@@ -889,9 +896,33 @@ void cGrBoard::refreshBoard(tSituation *s, float Fps, int forceArcade, tCarElt *
 		if (debugFlag) grDispDebug(Fps, curr);
 		if (GFlag) grDispGGraph(curr);
 		if (boardFlag) grDispCarBoard(curr, s);
-		if (leaderFlag)	grDispLeaderBoard(curr, s);
+		if (leaderFlag) grDispLeaderBoard(curr, s);
 		if (counterFlag) grDispCounterBoard2(curr);
 	}
+
+	
+	// Position display, top right, always visible
+const int BUFSIZE_POS = 32;
+char posbuf[BUFSIZE_POS];
+snprintf(posbuf, BUFSIZE_POS, "#%d", curr->_pos);
+
+float posColor[4];
+switch (curr->_pos) {
+    case 1:
+        posColor[0] = 1.0f; posColor[1] = 0.84f; posColor[2] = 0.0f; posColor[3] = 1.0f; // Gold
+        break;
+    case 2:
+        posColor[0] = 0.75f; posColor[1] = 0.75f; posColor[2] = 0.75f; posColor[3] = 1.0f; // Silver
+        break;
+    case 3:
+        posColor[0] = 0.8f; posColor[1] = 0.5f; posColor[2] = 0.2f; posColor[3] = 1.0f; // Bronze
+        break;
+    default:
+        posColor[0] = 0.0f; posColor[1] = 0.0f; posColor[2] = 0.0f; posColor[3] = 1.0f; // Black
+        break;
+}
+
+GfuiPrintString(posbuf, posColor, GFUI_FONT_BIG_C, Winx + Winw - 10, Winy + Winh - 30, GFUI_ALIGN_HR_VB);
 
 	trackMap->display(curr, s, Winx, Winy, Winw, Winh);
 }
