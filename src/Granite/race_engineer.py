@@ -2,22 +2,27 @@
 
 import json
 import os
-import time
 import wave
 import torch
-import pyaudio
 import whisper
 import threading
+import subprocess
+from pynput import keyboard as kb
 from transformers import AutoTokenizer, AutoModelForCausalLM
 
-os.environ.setdefault("PULSE_SERVER", "unix:/mnt/wslg/PulseServer")
-
+# ── Environment setup (must be before any audio initialisation) ───────────────
+# os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
+os.environ["DISPLAY"]      = os.environ.get("DISPLAY", ":0")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
 STATS_PATH = os.path.join(DATA_DIR, "end_statistics.json")
 SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
+RAW_PATH   = "/tmp/torcs_question.raw"
 WAV_PATH   = "/tmp/torcs_question.wav"
+
+SAMPLE_RATE = 16000
+CHANNELS    = 1
 
 # ── Load models ───────────────────────────────────────────────────────────────
 print("Loading Whisper...")
@@ -33,36 +38,18 @@ granite    = AutoModelForCausalLM.from_pretrained(
 )
 granite.eval()
 
-# ── Audio recording ───────────────────────────────────────────────────────────
-os.environ.setdefault("PULSE_SERVER", "unix:/mnt/wslg/PulseServer")
+# ── Recording ─────────────────────────────────────────────────────────────────
+def raw_to_wav(raw_path, wav_path, sample_rate=SAMPLE_RATE, channels=CHANNELS):
+    """Wrap raw PCM s16le data in a proper WAV header for Whisper."""
+    with open(raw_path, "rb") as f:
+        raw_data = f.read()
+    with wave.open(wav_path, "wb") as wf:
+        wf.setnchannels(channels)
+        wf.setsampwidth(2)  # s16le = 2 bytes per sample
+        wf.setframerate(sample_rate)
+        wf.writeframes(raw_data)
 
-def get_rdp_source_index():
-    pa = pyaudio.PyAudio()
-    for i in range(pa.get_device_count()):
-        d = pa.get_device_info_by_index(i)
-        if d['name'] == 'pulse' and d['maxInputChannels'] > 0:
-            pa.terminate()
-            return i
-    pa.terminate()
-    raise RuntimeError("PulseAudio device not found. Ensure PULSE_SERVER is set and WSLg is running.")
-
-# Replace: import keyboard
-from pynput import keyboard as kb
-
-# Replace record_question with this:
 def record_question(key="r"):
-    pa         = pyaudio.PyAudio()
-    device_idx = get_rdp_source_index()
-
-    stream = pa.open(
-        format=pyaudio.paInt16,
-        channels=1,
-        rate=44100,
-        input=True,
-        input_device_index=device_idx,
-        frames_per_buffer=1024
-    )
-    frames   = []
     pressed  = threading.Event()
     released = threading.Event()
 
@@ -87,20 +74,30 @@ def record_question(key="r"):
     pressed.wait()
     print("[RaceEngineer] Recording...")
 
-    while not released.is_set():
-        frames.append(stream.read(1024, exception_on_overflow=False))
+    # Record raw PCM — parecord writes clean s16le with these flags
+    proc = subprocess.Popen(
+        [
+            "parecord",
+            "--channels=1",
+            "--rate=16000",
+            "--format=s16le",
+            "--raw",
+            RAW_PATH
+        ],
+        stdout=None,
+        stderr=None
+    )
+
+    released.wait()
+    proc.terminate()
+    proc.wait()
 
     print("[RaceEngineer] Done recording.")
     listener.stop()
-    stream.stop_stream()
-    stream.close()
-    pa.terminate()
 
-    with wave.open(WAV_PATH, "wb") as wf:
-        wf.setnchannels(1)
-        wf.setsampwidth(pa.get_sample_size(pyaudio.paInt16))
-        wf.setframerate(44100)
-        wf.writeframes(b"".join(frames))
+    # Convert raw PCM to WAV for Whisper
+    raw_to_wav(RAW_PATH, WAV_PATH)
+    os.remove(RAW_PATH)
 
     return WAV_PATH
 
@@ -128,12 +125,10 @@ def load_race_context():
 
 def build_prompt(question, context):
     stats = context.get("stats", {})
-
     return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only.
 
 LIVE TELEMETRY:
 - Speed: {context.get('speed_kmh', 0):.1f} km/h | Gear: {context.get('gear', 'N/A')} | RPM: {context.get('rpm', 0):.0f}
-- Fuel remaining: {context.get('fuel', 'N/A'):.1f}L
 - Car damage: {context.get('damage', 0)} / 10000
 - Nearest opponent: {context.get('opponent_gap', 200):.1f}m
 - Distance raced: {context.get('dist_raced', 0):.0f}m
@@ -171,8 +166,8 @@ def speak(text):
 if __name__ == "__main__":
     print("[RaceEngineer] Ready. Hold R to ask a question.")
     while True:
-        wav = record_question(key="r")
-        result = whisper_model.transcribe(wav)
+        wav      = record_question(key="r")
+        result   = whisper_model.transcribe(wav)
         question = result["text"].strip()
         os.remove(wav)
 
