@@ -497,6 +497,45 @@ static void endStatistics(tCarElt* car, tSituation *s)
     printf("Stats Recorded (%d laps).\n", lapCount);
 }
 
+void logEngineerData(tCarElt* car, tSituation *s)
+{
+	static double lastWriteTime = 0;
+	if (s->currentTime - lastWriteTime < 2.0) return;
+	lastWriteTime = s->currentTime;
+
+	const char* homeDir = getenv("HOME");
+	if (!homeDir) return;
+
+	std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
+	mkdir(dataDir.c_str(), 0755);
+	std::string fullPath = dataDir + "/engineer_data.json";
+
+	std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::trunc);
+	if (!outFile.is_open()) {
+		printf("ERROR: Could not open engineer_data.json for writing\n");
+		return;
+	}
+
+
+	double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+
+	outFile << "{"
+			<< "\"speed_kmh\":" << (car->_speed_x * 3.6) << ","
+			<< "\"speed_avg_kph\":" << avgSpeed * 3.6 << ","
+			<< "\"dist_raced\":"      << car->_distRaced  << ","
+			<< "\"gear\":"      << car->_gear             << ","
+			<< "\"rpm\":"       << car->_enginerpm              << ","
+			<< "\"fuel\":"      << car->_fuel             << ","
+			<< "\"brake_temp\":" << car->_brakeTemp(1)  << "," // Front left brake temp as example
+			<< "\"tire_condition\":" << car->_tyreCondition(1)  << ","  // Front left tire temp as example
+			<< "\"tire_temp\":" << car->_tyreT_mid(1)  << ","  // Front left tire temp as example
+			<< "\"damage\":"    << car->_dammage          << ","
+			<< "\"lap\":"       << car->_laps
+			<< "}" << std::endl;
+
+	outFile.close();
+}
+
 void logLiveCommentary(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     // Log every 2 seconds to give the AI time to think
@@ -1436,6 +1475,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logSpeed(car, s);
 	logLiveCommentary(car, s);
 	logLiveCoaching(car, s);
+	logEngineerData(car, s);
 
 #ifndef WIN32
 #ifdef TELEMETRY

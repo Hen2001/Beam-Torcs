@@ -18,8 +18,9 @@ os.environ["DISPLAY"]      = os.environ.get("DISPLAY", ":0")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
-STATS_PATH = os.path.join(DATA_DIR, "end_statistics.json")
-SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
+# STATS_PATH = os.path.join(DATA_DIR, "engineer_data.json")
+# SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
+ENGINEER_PATH = os.path.join(DATA_DIR, "engineer_data.json")
 WAV_PATH   = "/tmp/torcs_question.wav"
 
 SAMPLE_RATE   = 16000
@@ -90,13 +91,14 @@ def record_question(key="r"):
 
     def on_press(key_event):
         try:
-            if key_event.char == key:
+            if key_event.char == key and not pressed.is_set():
                 pressed.set()
         except AttributeError:
             pass
 
     def on_release(key_event):
         try:
+            print(f"[DEBUG] Key released: {repr(key_event.char)}")
             if key_event.char == key:
                 released.set()
         except AttributeError:
@@ -142,21 +144,27 @@ def record_question(key="r"):
 # ── Race data ─────────────────────────────────────────────────────────────────
 def load_race_context():
     context = {}
-    if os.path.exists(STATS_PATH) and os.path.getsize(STATS_PATH) > 0:
-        try:
-            with open(STATS_PATH, "r") as f:
-                context["stats"] = json.load(f)
-        except json.JSONDecodeError:
-            context["stats"] = {}
+#     if os.path.exists(STATS_PATH) and os.path.getsize(STATS_PATH) > 0:
+#         try:
+#             with open(STATS_PATH, "r") as f:
+#                 context["stats"] = json.load(f)
+#         except json.JSONDecodeError:
+#             context["stats"] = {}
 
-    if os.path.exists(SPEED_PATH) and os.path.getsize(SPEED_PATH) > 0:
+    if os.path.exists(ENGINEER_PATH) and os.path.getsize(ENGINEER_PATH) > 0:
         try:
-            with open(SPEED_PATH, "r") as f:
+            with open(ENGINEER_PATH, "r") as f:
                 lines = [l.strip().rstrip(",") for l in f if l.strip() and l.strip() != ","]
             if lines:
                 last = json.loads(lines[-1])
-                context["current_speed_ms"] = last.get("speedx", 0)
-                context["current_segment"]  = last.get("segment_id", "N/A")
+                context["current speed in km/h"] = last.get("speed_kmh", 0)
+                context["avg_speed_km/h"] = last.get("speed_avg_kph", 0)
+                context["distance raced"]  = last.get("dist_raced", "N/A")
+                context["brake temperature"] = last.get("brake_temp", "N/A")
+                context["tire condition"] = last.get("tire_condition", "N/A")
+                context["tire temperature"] = last.get("tire_temp", "N/A")
+                context["current lap"] = last.get("lap", "N/A")
+                context["fuel"] = last.get("fuel", "N/A")
         except Exception:
             pass
     return context
@@ -169,14 +177,19 @@ def build_prompt(question, context):
     return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only.
 
 LIVE TELEMETRY:
-- Speed: {context.get('speed_kmh', 0):.1f} km/h | Gear: {context.get('gear', 'N/A')} | RPM: {context.get('rpm', 0):.0f}
+- Current Speed: {context.get('current speed in km/h', 0):.1f} km/h
+- Average Speed: {context.get('avg_speed_km/h', 0):.1f} km/h
+- Distance raced: {context.get('distance raced', 0):.0f}m
+- brake temperature: {context.get('brake temperature', 'N/A')}
+- tire condition: {context.get('tire condition', 'N/A')}
+- tire temperature: {context.get('tire temperature', 'N/A')}
 - Fuel remaining: {fuel_str}
 - Car damage: {context.get('damage', 0)} / 10000
 - Nearest opponent: {context.get('opponent_gap', 200):.1f}m
-- Distance raced: {context.get('dist_raced', 0):.0f}m
+- Distance raced: {context.get('distance raced', 0):.0f}m
 
 SESSION DATA:
-- Laps completed: {stats.get('laps_completed', 'N/A')}
+- Current Lap: {context.get('current lap', 'N/A')}
 - Best lap: {stats.get('best_lap_time', 0) * 60:.2f}s
 - Avg speed: {stats.get('avg_speed_kmh', 0):.1f} km/h
 
@@ -210,10 +223,6 @@ if __name__ == "__main__":
     print("[RaceEngineer] Ready. Hold R to ask a question.")
     while True:
         wav      = record_question(key="r")
-        
-        # DEBUG: keep a copy to inspect
-        import shutil
-        shutil.copy(wav, "/tmp/debug_last.wav")
         
         result   = whisper_model.transcribe(wav)
         question = result["text"].strip()
