@@ -775,7 +775,7 @@ void cGrScreen::update(tSituation *s, float Fps)
 			LiveCoaching();
 		}
     	updateTelemetryMessage(curCar, s);
-    	drawChatPanel();
+    	//drawChatPanel();
 		if (commentary){
 			drawCommentaryBox(); 
 		}
