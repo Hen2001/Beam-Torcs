@@ -27,7 +27,7 @@ def get_sector(seg_id):
     if seg_id < 235: return 4
     if seg_id < 310: return 5
     if seg_id < 390: return 6
-    if seg_id < 500: return 7
+    if seg_id < 500: return 7 
     if seg_id < 540: return 8
     if seg_id < 604: return 9
     return 9
@@ -192,7 +192,7 @@ Prompting:
     
         - Location
         - Weather
-        - The race car (maybe import the car the user is driving e.g: ow1)
+        - The race car (maybe import the car the user is driving e.g: ow1 to the live data file?)
 
     Event Prompts:
 
