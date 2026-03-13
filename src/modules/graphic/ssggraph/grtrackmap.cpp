@@ -387,8 +387,8 @@ cGrTrackMap::cGrTrackMap()
 		free(trackImage);
 
 		// Init the position and size of the map in the window.
-		map_x = -10;
-		map_y = -40;
+		map_x = 10;
+		map_y = 40;
 		map_size = 170;
 
 		// Restore some state.
@@ -458,8 +458,9 @@ void cGrTrackMap::display(
 	}
 
 	// Compute track map position.
-	int x = Winx + Winw + map_x - (int) (map_size*track_x_ratio);
-	int y = Winy + Winh + map_y - (int) (map_size*track_y_ratio);
+	// NEW
+	int x = Winx + map_x;
+	int y = Winy + map_y;
 
 	// Setup and display track map.
 	glEnable(GL_BLEND);
@@ -518,9 +519,9 @@ void cGrTrackMap::drawTrackPanning(
 	x2 = (currentCar->_pos_X + radius - track_min_x)/tracksize;
 	y2 = (currentCar->_pos_Y + radius - track_min_y)/tracksize;
 
-	// Draw track.
-	int x = Winx + Winw + map_x - map_size;
-	int y = Winy + Winh + map_y - map_size;
+	
+	int x = Winx + map_x;
+	int y = Winy + map_y;
 	glBegin(GL_QUADS);
     glTexCoord2f(x1, y1); glVertex2f(x, y);
     glTexCoord2f(x2, y1); glVertex2f(x + map_size, y);
@@ -587,8 +588,9 @@ void cGrTrackMap::drawTrackPanningAligned(
 	float tracksize = MAX(track_width, track_height);
 	float radius = MIN(500.0, tracksize/2.0);
 
-	float x = Winx + Winw + map_x - map_size;
-	float y = Winy + Winh + map_y - map_size;
+	
+	int x = Winx + map_x;
+	int y = Winy + map_y;
 	glMatrixMode(GL_TEXTURE);
 	glPushMatrix();
 
