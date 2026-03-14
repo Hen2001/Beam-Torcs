@@ -116,7 +116,8 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 
 
 #include <fstream> // Required for file writing
-
+#include <iomanip>
+#include <sstream>
 #include <string>   
 #include <iostream>
 
@@ -499,41 +500,76 @@ static void endStatistics(tCarElt* car, tSituation *s)
 
 void logEngineerData(tCarElt* car, tSituation *s)
 {
+
+	// ============== Telemetry Calculations ==============
+
+	// Tyre temperatures - average inner/mid/outer per wheel
+    float tyreTempFL = (car->priv.wheel[FRNT_LFT].temp_in + 
+                        car->priv.wheel[FRNT_LFT].temp_mid + 
+                        car->priv.wheel[FRNT_LFT].temp_out) / 3.0f;
+    float tyreTempFR = (car->priv.wheel[FRNT_RGT].temp_in + 
+                        car->priv.wheel[FRNT_RGT].temp_mid + 
+                        car->priv.wheel[FRNT_RGT].temp_out) / 3.0f;
+    float tyreTempRL = (car->priv.wheel[REAR_LFT].temp_in + 
+                        car->priv.wheel[REAR_LFT].temp_mid + 
+                        car->priv.wheel[REAR_LFT].temp_out) / 3.0f;
+    float tyreTempRR = (car->priv.wheel[REAR_RGT].temp_in + 
+                        car->priv.wheel[REAR_RGT].temp_mid + 
+                        car->priv.wheel[REAR_RGT].temp_out) / 3.0f;
+
+	// Tyre condition (1.0 = new, 0.0 = destroyed)
+    float condFL = car->priv.wheel[FRNT_LFT].condition;
+    float condFR = car->priv.wheel[FRNT_RGT].condition;
+    float condRL = car->priv.wheel[REAR_LFT].condition;
+    float condRR = car->priv.wheel[REAR_RGT].condition;
+
+    // Brake temps (0.0 = cool, 1.0 = dangerously hot)
+    float brakeTempFL = car->priv.wheel[FRNT_LFT].brakeTemp;
+    float brakeTempFR = car->priv.wheel[FRNT_RGT].brakeTemp;
+    float brakeTempRL = car->priv.wheel[REAR_LFT].brakeTemp;
+    float brakeTempRR = car->priv.wheel[REAR_RGT].brakeTemp;
+
+	// Averages for easier analysis
+	float avgTypeCondition = (condFL + condFR + condRL + condRR) / 4.0f;
+	float avgTyreTemp = (tyreTempFL + tyreTempFR + tyreTempRL + tyreTempRR) / 4.0f;
+	float avgBrakeTemp = (brakeTempFL + brakeTempFR + brakeTempRL + brakeTempRR) / 4.0f;
+
+	// speed to kph & avg speed calculation
+	float speedKph = car->pub.DynGCg.vel.x * 3.6f;
+    if (speedKph < 0) speedKph = -speedKph;
+	double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+
+
+	// ================ Writing to json ================
+
 	static double lastWriteTime = 0;
-	if (s->currentTime - lastWriteTime < 2.0) return;
+	if (s->currentTime - lastWriteTime < 2.0) return; // only write every 2 secs
 	lastWriteTime = s->currentTime;
 
-	const char* homeDir = getenv("HOME");
-	if (!homeDir) return;
+	std::string path = std::string(getenv("HOME")) + 
+                    "/.torcs/DrivingData/Race_Engineer_Data.json";
 
-	std::string dataDir = std::string(homeDir) + "/.torcs/DrivingData";
-	mkdir(dataDir.c_str(), 0755);
-	std::string fullPath = dataDir + "/engineer_data.json";
-
-	std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::trunc);
-	if (!outFile.is_open()) {
+	std::ofstream f(path.c_str(), std::ios::out | std::ios::trunc);
+	if (!f.is_open()) {
 		printf("ERROR: Could not open engineer_data.json for writing\n");
 		return;
 	}
 
-
-	double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
-
-	outFile << "{"
-			<< "\"speed_kmh\":" << (car->_speed_x * 3.6) << ","
-			<< "\"speed_avg_kph\":" << avgSpeed * 3.6 << ","
-			<< "\"dist_raced\":"      << car->_distRaced  << ","
-			<< "\"gear\":"      << car->_gear             << ","
-			<< "\"rpm\":"       << car->_enginerpm              << ","
-			<< "\"fuel\":"      << car->_fuel             << ","
-			<< "\"brake_temp\":" << car->_brakeTemp(1)  << "," // Front left brake temp as example
-			<< "\"tire_condition\":" << car->_tyreCondition(1)  << ","  // Front left tire temp as example
-			<< "\"tire_temp\":" << car->_tyreT_mid(1)  << ","  // Front left tire temp as example
-			<< "\"damage\":"    << car->_dammage          << ","
-			<< "\"lap\":"       << car->_laps
-			<< "}" << std::endl;
-
-	outFile.close();
+	f << std::fixed << std::setprecision(3);
+    f << "{\n";
+    f << "  \"speed_kmh\": "       << speedKph                    << ",\n";
+	f << "  \"avg_speed_kmh\": "   << (avgSpeed * 3.6)            << ",\n";
+    f << "  \"lap\": "             << car->race.laps               << ",\n";
+    f << "  \"lap_time\": "        << car->race.curLapTime         << ",\n";
+    f << "  \"best_lap_time\": "   << car->race.bestLapTime        << ",\n";
+    f << "  \"dist_raced\": "      << car->race.distRaced          << ",\n";
+	f << "  \"fuel\": "            << car->priv.fuel               << ",\n";
+    f << "  \"avg_tyre_temp\": " << avgTyreTemp 				   << ",\n";
+	f << "  \"avg_tyre_condition\": " << avgTypeCondition 		   << ",\n";
+    f << "  \"avg_brake_temp\": " << avgBrakeTemp 				   << "\n";
+	f << "  \"damage\": "          << car->priv.dammage            << ",\n";
+    f << "}\n";
+    f.close();
 }
 
 void logLiveCommentary(tCarElt* car, tSituation *s) {
@@ -1473,9 +1509,21 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logTrackPosition(car, s); // Here is where the car Logs the driving data
 	logSegmentPosition(car, s);
 	logSpeed(car, s);
-	logLiveCommentary(car, s);
-	logLiveCoaching(car, s);
-	logEngineerData(car, s);
+	
+	
+	if (commentary)
+	{
+		logLiveCommentary(car, s);
+	}
+	if (coach)
+	{
+		logLiveCoaching(car, s);
+	}
+	if (engineer)
+	{
+		logEngineerData(car, s);
+	}
+	
 
 #ifndef WIN32
 #ifdef TELEMETRY
