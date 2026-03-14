@@ -551,7 +551,7 @@ void logEngineerData(tCarElt* car, tSituation *s)
 
 	std::ofstream f(path.c_str(), std::ios::out | std::ios::trunc);
 	if (!f.is_open()) {
-		printf("ERROR: Could not open engineer_data.json for writing\n");
+		printf("ERROR: Could not open Race_Engineer_Data.json for writing\n");
 		return;
 	}
 
@@ -593,6 +593,8 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
         liveFile.close();
     }
 }
+
+
 void logLiveCoaching(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     if (s->currentTime - lastLiveWrite < 2.0) return;
