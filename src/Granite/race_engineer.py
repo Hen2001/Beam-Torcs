@@ -190,8 +190,7 @@ LIVE TELEMETRY:
 
 SESSION DATA:
 - Current Lap: {context.get('current lap', 'N/A')}
-- Best lap: {stats.get('best_lap_time', 0) * 60:.2f}s
-- Avg speed: {stats.get('avg_speed_kmh', 0):.1f} km/h
+
 
 Driver: {question}
 Engineer:"""
