@@ -523,7 +523,7 @@ void logEngineerData(tCarElt* car, tSituation *s)
     float condRL = car->priv.wheel[REAR_LFT].condition;
     float condRR = car->priv.wheel[REAR_RGT].condition;
 
-    // Brake temps (0.0 = cool, 1.0 = dangerously hot)
+    // Brake temps (0.0 = cool, 1.0 = hot)
     float brakeTempFL = car->priv.wheel[FRNT_LFT].brakeTemp;
     float brakeTempFR = car->priv.wheel[FRNT_RGT].brakeTemp;
     float brakeTempRL = car->priv.wheel[REAR_LFT].brakeTemp;
@@ -559,10 +559,10 @@ void logEngineerData(tCarElt* car, tSituation *s)
     f << "{\n";
     f << "  \"speed_kmh\": "       << speedKph                    << ",\n";
 	f << "  \"avg_speed_kmh\": "   << (avgSpeed * 3.6)            << ",\n";
+	f << "  \"dist_raced\": "      << car->race.distRaced          << ",\n";
     f << "  \"lap\": "             << car->race.laps               << ",\n";
     f << "  \"lap_time\": "        << car->race.curLapTime         << ",\n";
     f << "  \"best_lap_time\": "   << car->race.bestLapTime        << ",\n";
-    f << "  \"dist_raced\": "      << car->race.distRaced          << ",\n";
 	f << "  \"fuel\": "            << car->priv.fuel               << ",\n";
     f << "  \"avg_tyre_temp\": " << avgTyreTemp 				   << ",\n";
 	f << "  \"avg_tyre_condition\": " << avgTypeCondition 		   << ",\n";

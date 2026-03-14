@@ -161,12 +161,6 @@ def record_question(key="r"):
 # ── Race data ─────────────────────────────────────────────────────────────────
 def load_race_context():
     context = {}
-#     if os.path.exists(STATS_PATH) and os.path.getsize(STATS_PATH) > 0:
-#         try:
-#             with open(STATS_PATH, "r") as f:
-#                 context["stats"] = json.load(f)
-#         except json.JSONDecodeError:
-#             context["stats"] = {}
 
     if os.path.exists(ENGINEER_PATH) and os.path.getsize(ENGINEER_PATH) > 0:
         try:
@@ -175,19 +169,20 @@ def load_race_context():
             if lines:
                 last = json.loads(lines[-1])
                 context["current speed in km/h"] = last.get("speed_kmh", 0)
-                context["avg_speed_km/h"] = last.get("speed_avg_kph", 0)
+                context["avg_speed_km/h"] = last.get("avg_speed_kmh", 0)
                 context["distance raced"]  = last.get("dist_raced", "N/A")
-                context["brake temperature"] = last.get("brake_temp", "N/A")
-                context["tire condition"] = last.get("tire_condition", "N/A")
-                context["tire temperature"] = last.get("tire_temp", "N/A")
                 context["current lap"] = last.get("lap", "N/A")
                 context["fuel"] = last.get("fuel", "N/A")
+                context["current tire temperature (avg across all tyres)"] = last.get("avg_tyre_temp", "N/A")
+                context["current tire condition (avg across all tyres)"] = last.get("avg_tyre_condition", "N/A")
+                context["current brake temperature (avg across all brakes)"] = last.get("avg_brake_temp", "N/A")
+                context["current car damage"] = last.get("damage", "N/A")
+
         except Exception:
             pass
     return context
 
 def build_prompt(question, context):
-    stats = context.get("stats", {})
     fuel  = context.get('fuel', None)
     fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
 
@@ -195,18 +190,16 @@ def build_prompt(question, context):
 
 LIVE TELEMETRY:
 - Current Speed: {context.get('current speed in km/h', 0):.1f} km/h
-- Average Speed: {context.get('avg_speed_km/h', 0):.1f} km/h
-- Distance raced: {context.get('distance raced', 0):.0f}m
-- brake temperature: {context.get('brake temperature', 'N/A')}
-- tire condition: {context.get('tire condition', 'N/A')}
-- tire temperature: {context.get('tire temperature', 'N/A')}
-- Fuel remaining: {fuel_str}
-- Car damage: {context.get('damage', 0)} / 10000
-- Nearest opponent: {context.get('opponent_gap', 200):.1f}m
-- Distance raced: {context.get('distance raced', 0):.0f}m
+- Brake Temperature: {context.get('brake temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Tire Condition: {context.get('tire condition', 'N/A')}  (1.0 = new, 0.0 = destroyed)
+- Tire Temperature: {context.get('tire temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Car Damage: {context.get('damage', 0)} / 10000
+- Fuel Remaining: {context.get('fuel', 0)}L
 
 SESSION DATA:
 - Current Lap: {context.get('current lap', 'N/A')}
+- Distance raced: {context.get('distance raced', 0):.0f}m
+- Average Speed: {context.get('avg_speed_km/h', 0):.1f} km/h
 
 
 Driver: {question}
