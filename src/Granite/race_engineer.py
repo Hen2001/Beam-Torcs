@@ -11,6 +11,22 @@ import pyaudio
 import whisper
 from pynput import keyboard as kb
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import ctypes
+import contextlib
+
+# ── Suppress ALSA/JACK noise ──────────────────────────────────────────────────
+@contextlib.contextmanager
+def suppress_alsa_errors():
+    """Redirect ALSA/JACK stderr noise to /dev/null."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)
+    os.dup2(devnull, 2)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)
+        os.close(old_stderr)
 
 # ── Environment (must be set before any audio initialisation) ─────────────────
 os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
@@ -73,7 +89,6 @@ granite.eval()
 
 # ── Audio device ──────────────────────────────────────────────────────────────
 def get_pulse_device_index(pa):
-    """Find the PulseAudio input device index."""
     for i in range(pa.get_device_count()):
         d = pa.get_device_info_by_index(i)
         if d['name'] == 'pulse' and d['maxInputChannels'] > 0:
@@ -98,8 +113,7 @@ def record_question(key="r"):
 
     def on_release(key_event):
         try:
-            print(f"[DEBUG] Key released: {repr(key_event.char)}")
-            if key_event.char == key:
+            if key_event.char == key and pressed.is_set():
                 released.set()
         except AttributeError:
             pass
@@ -107,21 +121,22 @@ def record_question(key="r"):
     listener = kb.Listener(on_press=on_press, on_release=on_release)
     listener.start()
 
-    pa         = pyaudio.PyAudio()
-    device_idx = get_pulse_device_index(pa)
-
-    stream = pa.open(
-        format=SAMPLE_FORMAT,
-        channels=CHANNELS,
-        rate=SAMPLE_RATE,
-        input=True,
-        input_device_index=device_idx,
-        frames_per_buffer=CHUNK
-    )
-
     print("[RaceEngineer] Waiting for R key...")
     pressed.wait()
     print("[RaceEngineer] Recording...")
+
+    # Open stream AFTER key is pressed, not before
+    with suppress_alsa_errors():
+        pa         = pyaudio.PyAudio()
+        device_idx = get_pulse_device_index(pa)
+        stream     = pa.open(
+            format=SAMPLE_FORMAT,
+            channels=CHANNELS,
+            rate=SAMPLE_RATE,
+            input=True,
+            input_device_index=device_idx,
+            frames_per_buffer=CHUNK
+        )
 
     frames = []
     while not released.is_set():
@@ -131,11 +146,13 @@ def record_question(key="r"):
     listener.stop()
     stream.stop_stream()
     stream.close()
-    pa.terminate()
+
+    with suppress_alsa_errors():
+        pa.terminate()
 
     with wave.open(WAV_PATH, "wb") as wf:
         wf.setnchannels(CHANNELS)
-        wf.setsampwidth(2)  # paInt16 = 2 bytes
+        wf.setsampwidth(2)
         wf.setframerate(SAMPLE_RATE)
         wf.writeframes(b"".join(frames))
 
