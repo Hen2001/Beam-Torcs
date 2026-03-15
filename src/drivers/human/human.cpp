@@ -566,8 +566,8 @@ void logEngineerData(tCarElt* car, tSituation *s)
 	f << "  \"fuel\": "            << car->priv.fuel               << ",\n";
     f << "  \"avg_tyre_temp\": " << avgTyreTemp 				   << ",\n";
 	f << "  \"avg_tyre_condition\": " << avgTypeCondition 		   << ",\n";
-    f << "  \"avg_brake_temp\": " << avgBrakeTemp 				   << "\n";
-	f << "  \"damage\": "          << car->priv.dammage            << ",\n";
+    f << "  \"avg_brake_temp\": " << avgBrakeTemp 				   << ",\n";
+	f << "  \"damage\": "          << car->_dammage            << "\n";
     f << "}\n";
     f.close();
 }

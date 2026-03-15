@@ -165,18 +165,16 @@ def load_race_context():
     if os.path.exists(ENGINEER_PATH) and os.path.getsize(ENGINEER_PATH) > 0:
         try:
             with open(ENGINEER_PATH, "r") as f:
-                lines = [l.strip().rstrip(",") for l in f if l.strip() and l.strip() != ","]
-            if lines:
-                last = json.loads(lines[-1])
-                context["current speed in km/h"] = last.get("speed_kmh", 0)
-                context["avg_speed_km/h"] = last.get("avg_speed_kmh", 0)
-                context["distance raced"]  = last.get("dist_raced", "N/A")
-                context["current lap"] = last.get("lap", "N/A")
-                context["fuel"] = last.get("fuel", "N/A")
-                context["current tire temperature (avg across all tyres)"] = last.get("avg_tyre_temp", "N/A")
-                context["current tire condition (avg across all tyres)"] = last.get("avg_tyre_condition", "N/A")
-                context["current brake temperature (avg across all brakes)"] = last.get("avg_brake_temp", "N/A")
-                context["current car damage"] = last.get("damage", "N/A")
+                data = json.load(f)  # parse as single object, not line by line
+                context["current speed in km/h"] = data.get("speed_kmh", 0)
+                context["avg_speed_km/h"] = data.get("avg_speed_kmh", 0)
+                context["distance raced"]  = data.get("dist_raced", "N/A")
+                context["current lap"] = data.get("lap", "N/A")
+                context["fuel"] = data.get("fuel", "N/A")
+                context["current tire temperature (avg across all tyres)"] = data.get("avg_tyre_temp", "N/A")
+                context["current tire condition (avg across all tyres)"] = data.get("avg_tyre_condition", "N/A")
+                context["current brake temperature (avg across all brakes)"] = data.get("avg_brake_temp", "N/A")
+                context["current car damage"] = data.get("damage", "N/A")
 
         except Exception:
             pass
