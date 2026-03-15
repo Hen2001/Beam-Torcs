@@ -245,12 +245,17 @@ SimWheelUpdateForce(tCar *car, int index)
 		if (wheel->T_current > 150.0f) wheel->T_current = 150.0f;
 	}
 
-	// Tyre wear
+	// Tyre wear ~20 laps to significant degradation on tarmac
 	if (car->options->tyre_damage > 0.0f) {
 		if (wheel->condition == 0.0f) wheel->condition = 1.0f;
-		wheel->condition -= SimDeltaTime * 0.000005f
-							* car->options->tyre_damage
-							* s * (wheel->forces.z / wheel->opLoad);
+
+			tdble surface_wear = wheel->trkPos.seg->surface->kDammage;
+			wheel->condition -= SimDeltaTime * 0.00015f
+								* car->options->tyre_damage
+								* s
+								* (wheel->forces.z / wheel->opLoad)
+								* surface_wear;
+								
 		if (wheel->condition < 0.0f) wheel->condition = 0.0f;
 	}
 
