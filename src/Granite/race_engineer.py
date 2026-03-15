@@ -171,9 +171,9 @@ def load_race_context():
                 context["distance raced"]  = data.get("dist_raced", "N/A")
                 context["current lap"] = data.get("lap", "N/A")
                 context["fuel"] = data.get("fuel", "N/A")
-                context["current tire temperature (avg across all tyres)"] = data.get("avg_tyre_temp", "N/A")
-                context["current tire condition (avg across all tyres)"] = data.get("avg_tyre_condition", "N/A")
-                context["current brake temperature (avg across all brakes)"] = data.get("avg_brake_temp", "N/A")
+                context["tire temperature"] = data.get("avg_tyre_temp", "N/A")
+                context["tire condition"] = data.get("avg_tyre_condition", "N/A")
+                context["brake temperature"] = data.get("avg_brake_temp", "N/A")
                 context["current car damage"] = data.get("damage", "N/A")
 
         except Exception:
@@ -188,9 +188,9 @@ def build_prompt(question, context):
 
 LIVE TELEMETRY:
 - Current Speed: {context.get('current speed in km/h', 0):.1f} km/h
-- Brake Temperature: {context.get('brake temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
-- Tire Condition: {context.get('tire condition', 'N/A')}  (1.0 = new, 0.0 = destroyed)
-- Tire Temperature: {context.get('tire temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Current brake temperature (avg across all brakes): {context.get('brake temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Current tire condition (avg across all tyres): {context.get('tire condition', 'N/A')}  (1.0 = new, 0.0 = destroyed)
+- Current tire temperature (avg across all tyres): {context.get('tire temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
 - Car Damage: {context.get('damage', 0)} / 10000
 - Fuel Remaining: {context.get('fuel', 0)}L
 
@@ -222,7 +222,10 @@ def ask_granite(question):
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
 def speak(text):
-    os.system(f'echo "{text}" | festival --tts')
+    # Write to temp file to avoid shell escaping issues
+    with open('/tmp/torcs_speech.txt', 'w') as f:
+        f.write(text)
+    os.system('PULSE_SERVER=unix:/mnt/wslg/PulseServer bash -c "festival --tts < /tmp/torcs_speech.txt"')
 
 # ── Main loop ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":

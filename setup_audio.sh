@@ -10,19 +10,15 @@ echo "║    TORCS Race Engineer — Audio Setup     ║"
 echo "╚══════════════════════════════════════════╝"
 echo ""
 
-# ── ALSA → PulseAudio bridge ──────────────────────────────────────────────────
-echo "[1/4] Configuring ALSA to route through PulseAudio..."
-mkdir -p ~/.config/alsa
-cat > ~/.asoundrc << 'EOF'
-pcm.default pulse
-ctl.default pulse
-pcm.pulse { type pulse }
-ctl.pulse { type pulse }
-EOF
-echo "      ✓ ~/.asoundrc written"
+# ── Remove ~/.asoundrc if present (breaks pyaudio on WSL) ────────────────────
+if [ -f ~/.asoundrc ]; then
+    echo "[!] Removing ~/.asoundrc — this file breaks pyaudio on WSLg."
+    rm ~/.asoundrc
+    echo "    ✓ Removed"
+fi
 
 # ── Persist PULSE_SERVER ──────────────────────────────────────────────────────
-echo "[2/4] Persisting PULSE_SERVER environment variable..."
+echo "[1/5] Persisting PULSE_SERVER environment variable..."
 if ! grep -q "PULSE_SERVER" ~/.bashrc; then
     echo 'export PULSE_SERVER=unix:/mnt/wslg/PulseServer' >> ~/.bashrc
     echo "      ✓ Added to ~/.bashrc"
@@ -32,7 +28,7 @@ fi
 export PULSE_SERVER=unix:/mnt/wslg/PulseServer
 
 # ── System dependencies ───────────────────────────────────────────────────────
-echo "[3/4] Installing system dependencies..."
+echo "[2/5] Installing system dependencies..."
 sudo apt install -y \
     python3-dev \
     portaudio19-dev \
@@ -44,17 +40,24 @@ sudo apt install -y \
 echo "      ✓ System packages installed"
 
 # ── Python dependencies ───────────────────────────────────────────────────────
-echo "      Installing Python packages..."
+echo "[3/5] Installing Python packages..."
 pip install --quiet pyaudio pynput openai-whisper torch transformers
 echo "      ✓ Python packages installed"
 
+# ── Configure festival to use PulseAudio ─────────────────────────────────────
+echo "[4/5] Configuring festival TTS..."
+cat > ~/.festivalrc << 'EOF'
+(Parameter.set 'Audio_Command "pacat --server=unix:/mnt/wslg/PulseServer --playback --rate=16000 --format=s16le --channels=1 $FILE")
+(Parameter.set 'Audio_Method 'Audio_Command)
+EOF
+echo "      ✓ ~/.festivalrc written"
+
 # ── Verify audio ──────────────────────────────────────────────────────────────
-echo "[4/4] Verifying microphone access..."
+echo "[5/5] Verifying audio..."
 
 if ! pactl --server=unix:/mnt/wslg/PulseServer info > /dev/null 2>&1; then
     echo ""
     echo "  ✗ WSLg PulseAudio is not running."
-    echo "    This usually means WSLg hasn't initialised audio yet."
     echo "    Fix: Run 'wsl --shutdown' in Windows PowerShell, reopen WSL, then re-run this script."
     exit 1
 fi
@@ -85,9 +88,19 @@ if [ $? -ne 0 ]; then
 fi
 echo "      ✓ $DEVICE"
 
+# Test TTS
+echo "      Testing TTS output..."
+PULSE_SERVER=unix:/mnt/wslg/PulseServer bash -c 'echo "Race engineer ready." | festival --tts' 2>/dev/null
+echo "      ✓ TTS test complete (you should have heard audio)"
+
 echo ""
-echo "╔══════════════════════════════════════════╗"
-echo "║           Setup complete! ✓              ║"
-echo "║   Start TORCS and enable the engineer.   ║"
-echo "╚══════════════════════════════════════════╝"
+echo "╔══════════════════════════════════════════════════════╗"
+echo "║               Setup complete! ✓                     ║"
+echo "║                                                      ║"
+echo "║  Notes:                                              ║"
+echo "║  - Set difficulty to PRO for tyre wear/temp data     ║"
+echo "║  - If audio drops, run 'wsl --shutdown' in Windows   ║"
+echo "║    PowerShell and restart WSL                        ║"
+echo "║  - Hold R in-game to ask the race engineer           ║"
+echo "╚══════════════════════════════════════════════════════╝"
 echo ""
