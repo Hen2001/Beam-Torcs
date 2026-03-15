@@ -506,8 +506,8 @@
 	</section>
 
 	<section name="Simulation Options">
-		<attnum name="model/tyre/temperature" val="1"/>
-		<attnum name="damage/tyres" val="1"/>
+		<attstr name="model/tyre/temperature" val="true"/>
+		<attnum name="damage/tyres" val="1.0"/>
 	</section>
 	
 </params>

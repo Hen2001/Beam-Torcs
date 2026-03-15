@@ -4,7 +4,7 @@
 #    created              : Sun Mar 19 00:04:32 CET 2000
 #    copyright            : (C) 2000 by Eric Espie                         
 #    email                : torcs@free.fr   
-#    version              : $Id: Makefile,v 1.9 2005/03/29 12:24:44 olethros Exp $                                  
+#    version              : $Id: Makefile,v 1.5.6.1 2012/01/05 13:14:05 berniw Exp $                                  
 #
 ##############################################################################
 #
@@ -37,6 +37,15 @@ SOURCES		= simu.cpp \
 		  SimulationOptions.cpp
 
 LIBS		=  -lplibsg -lplibul -L${EXPORTBASE}/lib -lsolid
+
+SUBDIRS		= SOLID-2.0
+
+# Because libsolid is a static library it must be built before simuv3, therefore the explicit dependency on subdirs
+$(MODULE): subdirs
+
+EXPINCDIRS	= SOLID-2.0
+
+PKGSUBDIRS	= $(SUBDIRS)
 
 src_PKGFILES	= $(shell find * -maxdepth 0 -type f -print)
 
