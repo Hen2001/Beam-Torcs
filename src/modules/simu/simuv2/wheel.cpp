@@ -264,6 +264,36 @@ void SimWheelUpdateForce(tCar *car, int index)
 	wheel->rollRes = zforce * wheel->trkPos.seg->surface->kRollRes;
     car->carElt->priv.wheel[index].rollRes = wheel->rollRes;
 
+		// Tyre temperature
+	if (car->options->tyre_temperature) {
+		if (wheel->T_current < 25.0f) wheel->T_current = 25.0f;
+		wheel->T_current += SimDeltaTime * (
+			50.0f * s * (wheel->forces.z / wheel->opLoad)
+			- 5.0f * (wheel->T_current - 25.0f)
+		);
+		if (wheel->T_current > 150.0f) wheel->T_current = 150.0f;
+	}
+
+	// Tyre wear ~20 laps to significant degradation on tarmac
+	if (car->options->tyre_damage > 0.0f) {
+		if (wheel->condition == 0.0f) wheel->condition = 1.0f;
+
+			tdble surface_wear = wheel->trkPos.seg->surface->kDammage;
+			wheel->condition -= SimDeltaTime * 0.00015f
+								* car->options->tyre_damage
+								* s
+								* (wheel->forces.z / wheel->opLoad)
+								* surface_wear;
+								
+		if (wheel->condition < 0.0f) wheel->condition = 0.0f;
+	}
+
+	// Write back to public struct
+	car->carElt->priv.wheel[index].condition = wheel->condition;
+	car->carElt->priv.wheel[index].temp_in   = wheel->T_current;
+	car->carElt->priv.wheel[index].temp_mid  = wheel->T_current;
+	car->carElt->priv.wheel[index].temp_out  = wheel->T_current;
+
 	if (s > 0.000001f) {
 		// wheel axis based
 		Ft -= F * sx / s;
