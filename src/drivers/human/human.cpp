@@ -546,14 +546,6 @@ void logEngineerData(tCarElt* car, tSituation *s)
 	if (s->currentTime - lastWriteTime < 2.0) return; // only write every 2 secs
 	lastWriteTime = s->currentTime;
 
-
-        printf("[Engineer] FL: temp_in=%.3f temp_mid=%.3f temp_out=%.3f condition=%.3f brakeTemp=%.3f\n",
-            car->priv.wheel[FRNT_LFT].temp_in,
-            car->priv.wheel[FRNT_LFT].temp_mid,
-            car->priv.wheel[FRNT_LFT].temp_out,
-            car->priv.wheel[FRNT_LFT].condition,
-            car->priv.wheel[FRNT_LFT].brakeTemp);
-
 	std::string path = std::string(getenv("HOME")) + 
                     "/.torcs/DrivingData/Race_Engineer_Data.json";
 
