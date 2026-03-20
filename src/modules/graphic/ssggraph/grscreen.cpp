@@ -570,21 +570,34 @@ void drawCommentaryBox()
     }
     std::string displayText = getFirstNWords(comm_fullText, comm_wordsShown);
 
-    std::string line1, line2, line3;
-	wrapText(displayText, 65, line1, line2, line3);
+    float orthoW = (float)grWinw * 600.0f / (float)grWinh;
+    float scaleX = orthoW / 800.0f;   // 800 is our known base ortho width
 
-    float left   = 250.0f;
-    float width  = 500.0f;
-    float top    = 598.0f;
-    float height = 58.0f;
+    float boxWidth = 485.0f * scaleX;
+    float left     = 215.0f * scaleX;
+    float top      = 595.0f;
+    int   maxChars = 65;
+
+    std::string line1, line2, line3;
+    wrapText(displayText, maxChars, line1, line2, line3);
+
+    int lineCount = 1;
+    if (!line2.empty()) lineCount = 2;
+    if (!line3.empty()) lineCount = 3;
+
+    // All vertical values are fixed in ortho space — no sy scaling
+    float labelH = 20.0f;
+    float lineH  = 16.0f;
+    float padV   = 8.0f;
+    float height = labelH + (lineCount * lineH) + padV;
+
     float bottom = top - height;
-    float right  = left + width;
+    float right  = left + boxWidth;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // --- Solid dark background ---
-    glColor4f(0.067f, 0.067f, 0.067f, 1.0f);  // #111111, fully opaque
+    glColor4f(0.067f, 0.067f, 0.067f, 0.82f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -592,8 +605,7 @@ void drawCommentaryBox()
         glVertex2f(left,  top);
     glEnd();
 
-    // --- Subtle border (all sides) ---
-    glColor4f(0.18f, 0.18f, 0.18f, 1.0f);  // #2e2e2e
+    glColor4f(0.18f, 0.18f, 0.18f, 0.82f);
     glBegin(GL_LINE_LOOP);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -601,34 +613,32 @@ void drawCommentaryBox()
         glVertex2f(left,  top);
     glEnd();
 
-    // --- Red left accent stripe (3px) ---
-    glColor4f(0.91f, 0.255f, 0.165f, 1.0f);  // #e8412a
+    glColor4f(0.91f, 0.255f, 0.165f, 1.0f);
     glBegin(GL_QUADS);
-        glVertex2f(left,      bottom);
-        glVertex2f(left + 3,  bottom);
-        glVertex2f(left + 3,  top);
-        glVertex2f(left,      top);
+        glVertex2f(left,        bottom);
+        glVertex2f(left + 3.0f, bottom);
+        glVertex2f(left + 3.0f, top);
+        glVertex2f(left,        top);
     glEnd();
 
-    // --- Hairline divider under label row ---
-    glColor4f(0.165f, 0.165f, 0.165f, 1.0f);  // #2a2a2a
+    glColor4f(0.165f, 0.165f, 0.165f, 1.0f);
     glBegin(GL_LINES);
-        glVertex2f(left + 3,  top - 18);
-        glVertex2f(right - 2, top - 18);
+        glVertex2f(left + 3.0f,  top - labelH);
+        glVertex2f(right - 2.0f, top - labelH);
     glEnd();
 
     glDisable(GL_BLEND);
 
-    
     glColor3f(0.91f, 0.255f, 0.165f);
-    drawBitmapText("LIVE COMMENTARY", left + 10, top - 13);
+    drawBitmapText("LIVE COMMENTARY", left + 8.0f, top - 14.0f);
 
-    
-    glColor3f(0.941f, 0.941f, 0.941f);  // #f0f0f0
-    drawBitmapText(line1.c_str(), left + 10, bottom + 28);
-    if (!line2.empty())
-        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
+    glColor3f(0.941f, 0.941f, 0.941f);
+    float textX = left + 8.0f;
+    if (lineCount >= 1) drawBitmapText(line1.c_str(), textX, bottom + lineH * (lineCount - 1) + padV/2);
+    if (lineCount >= 2) drawBitmapText(line2.c_str(), textX, bottom + lineH * (lineCount - 2) + padV/2);
+    if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
 }
+
 
 void LiveCoaching()
 {
@@ -673,21 +683,33 @@ void drawCoachingBox()
     }
     std::string displayText = getFirstNWords(coach_fullText, coach_wordsShown);
 
-    std::string line1, line2, line3;
-	wrapText(displayText, 65, line1, line2, line3);
+    float orthoW = (float)grWinw * 600.0f / (float)grWinh;
+    float scaleX = orthoW / 800.0f;
 
-    float left   = 250.0f;
-    float width  = 500.0f;
-    float top    = 598.0f;
-    float height = 58.0f;
+    float boxWidth = 485.0f * scaleX;
+    float left     = 215.0f * scaleX;
+    float top      = 595.0f;
+    int   maxChars = 65;
+
+    std::string line1, line2, line3;
+    wrapText(displayText, maxChars, line1, line2, line3);
+
+    int lineCount = 1;
+    if (!line2.empty()) lineCount = 2;
+    if (!line3.empty()) lineCount = 3;
+
+    float labelH = 20.0f;
+    float lineH  = 16.0f;
+    float padV   = 8.0f;
+    float height = labelH + (lineCount * lineH) + padV;
+
     float bottom = top - height;
-    float right  = left + width;
+    float right  = left + boxWidth;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    // --- Solid dark background ---
-    glColor4f(0.067f, 0.067f, 0.067f, 1.0f);
+    glColor4f(0.067f, 0.067f, 0.067f, 0.82f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -695,8 +717,7 @@ void drawCoachingBox()
         glVertex2f(left,  top);
     glEnd();
 
-    // --- Subtle border ---
-    glColor4f(0.18f, 0.18f, 0.18f, 1.0f);
+    glColor4f(0.18f, 0.18f, 0.18f, 0.82f);
     glBegin(GL_LINE_LOOP);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -704,33 +725,30 @@ void drawCoachingBox()
         glVertex2f(left,  top);
     glEnd();
 
-    // --- Blue left accent stripe ---
-    glColor4f(0.176f, 0.561f, 0.961f, 1.0f);  // #2d8ff5
+    glColor4f(0.176f, 0.561f, 0.961f, 1.0f);
     glBegin(GL_QUADS);
-        glVertex2f(left,      bottom);
-        glVertex2f(left + 3,  bottom);
-        glVertex2f(left + 3,  top);
-        glVertex2f(left,      top);
+        glVertex2f(left,        bottom);
+        glVertex2f(left + 3.0f, bottom);
+        glVertex2f(left + 3.0f, top);
+        glVertex2f(left,        top);
     glEnd();
 
-    // --- Hairline divider ---
     glColor4f(0.165f, 0.165f, 0.165f, 1.0f);
     glBegin(GL_LINES);
-        glVertex2f(left + 3,  top - 18);
-        glVertex2f(right - 2, top - 18);
+        glVertex2f(left + 3.0f,  top - labelH);
+        glVertex2f(right - 2.0f, top - labelH);
     glEnd();
 
     glDisable(GL_BLEND);
 
-    // --- "COACHING" label (blue) ---
     glColor3f(0.176f, 0.561f, 0.961f);
-    drawBitmapText("COACHING", left + 10, top - 13);
+    drawBitmapText("COACHING", left + 8.0f, top - 14.0f);
 
-    // --- Coaching text lines ---
     glColor3f(0.941f, 0.941f, 0.941f);
-    drawBitmapText(line1.c_str(), left + 10, bottom + 28);
-    if (!line2.empty())
-        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
+    float textX = left + 8.0f;
+    if (lineCount >= 1) drawBitmapText(line1.c_str(), textX, bottom + lineH * (lineCount - 1) + padV/2);
+    if (lineCount >= 2) drawBitmapText(line2.c_str(), textX, bottom + lineH * (lineCount - 2) + padV/2);
+    if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
 }
 
 /* Update screen display */
