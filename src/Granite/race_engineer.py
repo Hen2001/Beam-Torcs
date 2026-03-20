@@ -184,7 +184,7 @@ def build_prompt(question, context):
     fuel  = context.get('fuel', None)
     fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
 
-    return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only.
+    return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only, refer to relevant telemetry data where possible.
 
 LIVE TELEMETRY:
 - Current Speed: {context.get('current speed in km/h', 0):.1f} km/h

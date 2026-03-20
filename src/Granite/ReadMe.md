@@ -32,23 +32,9 @@ python3 -m venv .venv
 
 *ensure you are in a virtual environment before continuing*
 
-pip install flask
+bash setup_audio.sh
 
-sudo apt install ffmpeg
-
-pip install flask-socketio
-
-sudo apt install libcurl4-openssl-dev
-
-pip install openai-whisper pyttsx3 sounddevice scipy
-
-*now copy the path of the "race_engineer.py" file and paste it into the following template command:*
-
-python3 /path/to/src/Granite/race_engineer.py
-
-*e.g. my command is python3 /home/zackc/Beam-Torcs/src/Granite/race_engineer.py*
-
-*once the race_engineer is running, wait for "Whisper" & "Granite" to load, and open http://127.0.0.1:5000 in your browser, then make a new terminal in vscode & run:*
+*This will install all packages and configurations for you, You should hear the race engineer say "Race Engineer Ready", this will confirm everything is working correctly*
 
 make
 
