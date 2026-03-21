@@ -26,7 +26,7 @@
   <section name="Tracks">
     <attnum name="maximum number" val="1"/>
     <section name="1">
-      <attstr name="name" val="forza"/>
+      <attstr name="name" val="corkscrew"/>
       <attstr name="category" val="road"/>
     </section>
 
@@ -61,7 +61,7 @@
     <attstr name="focused module" val="human"/>   
      <section name="1">
       <attnum name="idx" val="0"/>
-      <attstr name="module" val="human"/>          
+      <attstr name="module" val="player"/>          
       </section>
   </section>
 
