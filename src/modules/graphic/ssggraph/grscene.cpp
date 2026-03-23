@@ -297,27 +297,27 @@ void grAddSideBanner2(void)
     vtx[0] = bx;   vtx[1] = by - width; vtx[2] = bz + height;
     tex_arr->add(tex); vtx_arr->add(vtx); clr_arr->add(clrTopRight);
 
-    ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
+//     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
 
-  if (strcmp(grTrack->internalname, "corkscrew") == 0) {
-    std::string texDir = std::string(TORCS_SOURCE_DIR);
-    ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png",
-                                        const_cast<char*>(texDir.c_str()),
-                                        FALSE, FALSE);
-   if (!st) {
-        GfOut("grAddSideBanner: failed to load banner texture\n");
-        return;
-}
-    ((ssgSimpleState*)st)->setShininess(0);
-    ((ssgSimpleState*)st)->disable(GL_LIGHTING);
+//   if (strcmp(grTrack->internalname, "corkscrew") == 0) {
+//     std::string texDir = std::string(TORCS_SOURCE_DIR);
+//     ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png",
+//                                         const_cast<char*>(texDir.c_str()),
+//                                         FALSE, FALSE);
+//    if (!st) {
+//         GfOut("grAddSideBanner: failed to load banner texture\n");
+//         return;
+// }
+//     ((ssgSimpleState*)st)->setShininess(0);
+//     ((ssgSimpleState*)st)->disable(GL_LIGHTING);
 
-    banner->setState(st);
-    banner->setCullFace(0);
+//     banner->setState(st);
+//     banner->setCullFace(0);
 
-    LandAnchor->addKid(banner);
-    }
-    printf("Track internal name: %s\n", grTrack->internalname);
-}
+//     LandAnchor->addKid(banner);
+//     }
+//     printf("Track internal name: %s\n", grTrack->internalname);
+ }
 static ssgLoaderOptionsEx	options;
 
 int
