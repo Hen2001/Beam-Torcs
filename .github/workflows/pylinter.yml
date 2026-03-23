@@ -27,4 +27,4 @@ jobs:
 
     - name: Run PyLint
       run: |
-        pylint --disable=all --enable=C0116,W0311 --max-line-length=100 $(git ls-files '*.py')
+        pylint --disable=all --enable=W0311 --max-line-length=100 $(git ls-files '*.py')

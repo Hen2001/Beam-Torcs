@@ -38,6 +38,8 @@
 #include <map>
 #include <portability.h>
 #include <musicplayer/musicplayer.h>
+#include <unistd.h>
+#include <AiFeatures.h>
 
 #include "raceengine.h"
 #include "racemain.h"
@@ -511,14 +513,111 @@ initPits(void)
 	}
 }
 
+void ReLoadAIFeatures(void)
+{
+    const char *home = getenv("HOME");
+    if (!home) return;
+
+    std::string logPath = std::string(home) + "/.torcs/DrivingData/granite_error.log";
+
+    // Clear the log
+    remove(logPath.c_str());
+
+	if (engineer)
+	{
+		// Launch engineer
+		std::string cmd = std::string("python3 ") + home +
+						"/Beam-Torcs/src/Granite/race_engineer.py &";
+		
+		// Using (void)system to suppress the unused-result warning
+		(void)system(cmd.c_str());
+	}
+	if (commentary)
+	{
+		// Launch commentary
+		std::string cmd = std::string("python3 ") + home +
+						"/Beam-Torcs/src/Granite/liveComs.py &";
+		
+		(void)system(cmd.c_str());
+	}
+	if (coach)
+	{
+		// Launch coach
+		std::string cmd = std::string("python3 ") + home +
+						"/Beam-Torcs/src/Granite/liveCoach.py &";
+		
+		(void)system(cmd.c_str());
+	}
+
+    char line[256];
+    int waited = 0;
+    while (waited < 120)
+    {
+        sleep(1);
+        waited++;
+
+        FILE *f = fopen(logPath.c_str(), "r");
+        if (!f)
+        {
+            RmLoadingScreenSetText("Loading Granite...");
+            continue;
+        }
+
+        // Read the file to get the most recent progress line
+        bool foundProgress = false;
+        while (fgets(line, sizeof(line), f))
+        {
+            // Check if loading is complete
+            if (strstr(line, "100%") != NULL)
+            {
+                RmLoadingScreenSetText("AI Engineer ready!");
+                fclose(f);
+                sleep(1);
+                return;
+            }
+
+            // Extract percentage
+            const char *pctMatch = strstr(line, "Loading weights:");
+            if (pctMatch)
+            {
+                int percent = 0;
+                const char *numStart = pctMatch + 16;
+                while (*numStart == ' ') numStart++;
+                
+                if (sscanf(numStart, "%d%%", &percent) == 1) {
+                    char msg[64];
+                    snprintf(msg, sizeof(msg), "Loading Granite: %d%%", percent);
+                    RmLoadingScreenSetText(msg);
+                    foundProgress = true;
+                }
+            }
+        }
+
+        if (!foundProgress)
+        {
+            RmLoadingScreenSetText("Loading AI features...");
+        }
+
+        fclose(f);
+    }
+
+    RmLoadingScreenSetText("Failed to load AI features in time.");
+}
+
 /** Initialize the cars for a race.
     The car are positionned on the starting grid.
     @return	0 Ok
 		-1 Error
  */
+
+
 int
 ReInitCars(void)
 {
+	if (engineer || commentary || coach)
+	{
+		ReLoadAIFeatures();
+	}
 	int nCars;
 	int index;
 	int i, j, k;
@@ -694,6 +793,8 @@ ReInitCars(void)
 
     return 0;
 }
+
+
 
 /** Dump the track segments on screen
     @param	track	track to dump

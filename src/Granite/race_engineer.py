@@ -13,6 +13,12 @@ from pynput import keyboard as kb
 from transformers import AutoTokenizer, AutoModelForCausalLM
 import ctypes
 import contextlib
+import sys
+
+# Redirect stderr to the log file so TORCS can read progress
+log_path = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData", "granite_error.log")
+log_file = open(log_path, 'w', buffering=1)  # line buffered
+sys.stderr = log_file
 
 # ── Suppress ALSA/JACK noise ──────────────────────────────────────────────────
 @contextlib.contextmanager
@@ -86,6 +92,10 @@ granite    = AutoModelForCausalLM.from_pretrained(
     device_map="cpu"
 )
 granite.eval()
+
+# Signal to TORCS that we're ready
+with open('/tmp/torcs_engineer_ready', 'w') as f:
+    f.write('ready')
 
 # ── Audio device ──────────────────────────────────────────────────────────────
 def get_pulse_device_index(pa):
