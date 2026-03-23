@@ -22,6 +22,7 @@ print("Model loaded!")
 
 
 def generate_coaching(prompt):
+    """Generate coaching feedback from the model based on the given prompt."""
     inputs = tokenizer(prompt, return_tensors="pt")
     with torch.no_grad():
         output = model.generate(
@@ -37,6 +38,7 @@ def generate_coaching(prompt):
 
 
 def get_coaching(data):
+    """Generate coaching feedback based on the current telemetry data."""
     speed     = int(data.get('speed', 0))
     gear      = data.get('gear', 0)
     damage    = data.get('damage', 0)

@@ -37,6 +37,10 @@ SimCarConfig(tCar *car)
 	int		i;
 	tCarElt	*carElt = car->carElt;
 	
+	car->options = new SimulationOptions;
+	car->options->SetFromSkill(carElt->_skillLevel);
+	car->options->LoadFromFile(hdle);
+
 	car->dimension.x = GfParmGetNum(hdle, SECT_CAR, PRM_LEN, (char*)NULL, 4.7f);
 	car->dimension.y = GfParmGetNum(hdle, SECT_CAR, PRM_WIDTH, (char*)NULL, 1.9f);
 	overallwidth     = GfParmGetNum(hdle, SECT_CAR, PRM_OVERALLWIDTH, (char*)NULL, car->dimension.y);

@@ -65,7 +65,7 @@ static int  pitcmd(int index, tCarElt* car, tSituation *s);
 
 int joyPresent = 0;
 //bool responseBot = 0;
-static tTrack	*curTrack;
+ tTrack	*curTrack;
 
 static float color[] = {0.0, 0.0, 1.0, 1.0};
 
@@ -116,7 +116,8 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 
 
 #include <fstream> // Required for file writing
-
+#include <iomanip>
+#include <sstream>
 #include <string>   
 #include <iostream>
 
@@ -127,25 +128,6 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 #include <sys/stat.h>
 #include <curl/curl.h>
 
-static void sendVoiceRequest(const char* endpoint)
-{
-    CURL* curl = curl_easy_init();
-    if (!curl) return;
-
-    std::string url = std::string("http://localhost:5000/") + endpoint;
-    curl_easy_setopt(curl, CURLOPT_URL, url.c_str());
-    curl_easy_setopt(curl, CURLOPT_POST, 1L);
-    curl_easy_setopt(curl, CURLOPT_POSTFIELDSIZE, 0L);
-    curl_easy_setopt(curl, CURLOPT_TIMEOUT_MS, 200L);  // 200ms max
-
-    CURLcode res = curl_easy_perform(curl);
-    if (res == CURLE_OK) {
-        printf("[RaceEngineer] Sent /%s to Flask\n", endpoint);
-    } else {
-        printf("[RaceEngineer] Failed to send /%s: %s\n", endpoint, curl_easy_strerror(res));
-    }
-    curl_easy_cleanup(curl);
-}
 static std::ofstream speedOut;
 static std::ofstream trackOut;
 
@@ -544,6 +526,80 @@ static void endStatistics(tCarElt* car, tSituation *s)
     printf("Stats Recorded (%d laps).\n", lapCount);
 }
 
+void logEngineerData(tCarElt* car, tSituation *s)
+{
+
+	// ============== Telemetry Calculations ==============
+
+	// Tyre temperatures - average inner/mid/outer per wheel
+    float tyreTempFL = (car->priv.wheel[FRNT_LFT].temp_in + 
+                        car->priv.wheel[FRNT_LFT].temp_mid + 
+                        car->priv.wheel[FRNT_LFT].temp_out) / 3.0f;
+    float tyreTempFR = (car->priv.wheel[FRNT_RGT].temp_in + 
+                        car->priv.wheel[FRNT_RGT].temp_mid + 
+                        car->priv.wheel[FRNT_RGT].temp_out) / 3.0f;
+    float tyreTempRL = (car->priv.wheel[REAR_LFT].temp_in + 
+                        car->priv.wheel[REAR_LFT].temp_mid + 
+                        car->priv.wheel[REAR_LFT].temp_out) / 3.0f;
+    float tyreTempRR = (car->priv.wheel[REAR_RGT].temp_in + 
+                        car->priv.wheel[REAR_RGT].temp_mid + 
+                        car->priv.wheel[REAR_RGT].temp_out) / 3.0f;
+
+	// Tyre condition (1.0 = new, 0.0 = destroyed)
+    float condFL = car->priv.wheel[FRNT_LFT].condition;
+    float condFR = car->priv.wheel[FRNT_RGT].condition;
+    float condRL = car->priv.wheel[REAR_LFT].condition;
+    float condRR = car->priv.wheel[REAR_RGT].condition;
+
+    // Brake temps (0.0 = cool, 1.0 = hot)
+    float brakeTempFL = car->priv.wheel[FRNT_LFT].brakeTemp;
+    float brakeTempFR = car->priv.wheel[FRNT_RGT].brakeTemp;
+    float brakeTempRL = car->priv.wheel[REAR_LFT].brakeTemp;
+    float brakeTempRR = car->priv.wheel[REAR_RGT].brakeTemp;
+
+	// Averages for easier analysis
+	float avgTypeCondition = (condFL + condFR + condRL + condRR) / 4.0f;
+	float avgTyreTemp = (tyreTempFL + tyreTempFR + tyreTempRL + tyreTempRR) / 4.0f;
+	float avgBrakeTemp = (brakeTempFL + brakeTempFR + brakeTempRL + brakeTempRR) / 4.0f;
+
+	// speed to kph & avg speed calculation
+	float speedKph = car->pub.DynGCg.vel.x * 3.6f;
+    if (speedKph < 0) speedKph = -speedKph;
+	double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
+
+
+	// ================ Writing to json ================
+
+	static double lastWriteTime = 0;
+	if (s->currentTime - lastWriteTime < 2.0) return; // only write every 2 secs
+	lastWriteTime = s->currentTime;
+
+	std::string path = std::string(getenv("HOME")) + 
+                    "/.torcs/DrivingData/Race_Engineer_Data.json";
+
+	std::ofstream f(path.c_str(), std::ios::out | std::ios::trunc);
+	if (!f.is_open()) {
+		printf("ERROR: Could not open Race_Engineer_Data.json for writing\n");
+		return;
+	}
+
+	f << std::fixed << std::setprecision(3);
+    f << "{\n";
+    f << "  \"speed_kmh\": "       << speedKph                    << ",\n";
+	f << "  \"avg_speed_kmh\": "   << (avgSpeed * 3.6)            << ",\n";
+	f << "  \"dist_raced\": "      << car->race.distRaced          << ",\n";
+    f << "  \"lap\": "             << car->race.laps               << ",\n";
+    f << "  \"lap_time\": "        << car->race.curLapTime         << ",\n";
+    f << "  \"best_lap_time\": "   << car->race.bestLapTime        << ",\n";
+	f << "  \"fuel\": "            << car->priv.fuel               << ",\n";
+    f << "  \"avg_tyre_temp\": " << avgTyreTemp 				   << ",\n";
+	f << "  \"avg_tyre_condition\": " << avgTypeCondition 		   << ",\n";
+    f << "  \"avg_brake_temp\": " << avgBrakeTemp 				   << ",\n";
+	f << "  \"damage\": "          << car->_dammage            << "\n";
+    f << "}\n";
+    f.close();
+}
+
 void logLiveCommentary(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     // Log every 2 seconds to give the AI time to think
@@ -566,6 +622,8 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
         liveFile.close();
     }
 }
+
+
 void logLiveCoaching(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     if (s->currentTime - lastLiveWrite < 2.0) return;
@@ -893,8 +951,12 @@ void newrace(int index, tCarElt* car, tSituation *s)
                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
 		system(cmd.c_str());
     }
+	
 	if (engineer) {
         // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+		// Wake WSLg PulseAudio before launching script
+    	system("PULSE_SERVER=unix:/mnt/wslg/PulseServer pactl info > /dev/null 2>&1");
+    
 			std::string cmd = "python3 " + 
                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
 		system(cmd.c_str());
@@ -1490,22 +1552,21 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	logTrackPosition(car, s); // Here is where the car Logs the driving data
 	logSegmentPosition(car, s);
 	logSpeed(car, s);
-	logLiveCommentary(car, s);
-	logLiveCoaching(car, s);
-
-		// Push to talk — hold R to record, release to send
-	static bool pttActive = false;
-
-	if (currentKey['r'] == GFUI_KEY_DOWN && !pttActive) {
-		pttActive = true;
-		printf("[RaceEngineer] PTT pressed — starting recording\n");
-		sendVoiceRequest("start");
+	
+	
+	if (commentary)
+	{
+		logLiveCommentary(car, s);
 	}
-	if (currentKey['r'] == GFUI_KEY_UP && pttActive) {
-		pttActive = false;
-		printf("[RaceEngineer] PTT released — sending to Granite\n");
-		sendVoiceRequest("stop");
+	if (coach)
+	{
+		logLiveCoaching(car, s);
 	}
+	if (engineer)
+	{
+		logEngineerData(car, s);
+	}
+	
 
 #ifndef WIN32
 #ifdef TELEMETRY

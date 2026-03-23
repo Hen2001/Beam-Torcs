@@ -532,21 +532,25 @@ static std::string getFirstNWords(const std::string& text, int count)
     return result;
 }
 
-// CHANGED: splits text into two lines, breaking on a word boundary near maxChars
 static void wrapText(const std::string& text, int maxChars,
-                     std::string& line1, std::string& line2)
+                     std::string& line1, std::string& line2, std::string& line3)
 {
-    if ((int)text.size() <= maxChars) {
-        line1 = text;
-        line2 = "";
-        return;
-    }
-    // walk back from maxChars to find a space to break on
-    int split = maxChars;
-    while (split > 0 && text[split] != ' ') split--;
-    if (split == 0) split = maxChars; // no space found, hard cut
-    line1 = text.substr(0, split);
-    line2 = text.substr(text[split] == ' ' ? split + 1 : split);
+    line1 = ""; line2 = ""; line3 = "";
+    if (text.empty()) return;
+
+    auto breakAt = [&](const std::string& s, int limit, std::string& a, std::string& b) {
+        if ((int)s.size() <= limit) { a = s; b = ""; return; }
+        int split = limit;
+        while (split > 0 && s[split] != ' ') split--;
+        if (split == 0) split = limit;
+        a = s.substr(0, split);
+        b = s.substr(s[split] == ' ' ? split + 1 : split);
+    };
+
+    std::string rem;
+    breakAt(text, maxChars, line1, rem);
+    if (!rem.empty())
+        breakAt(rem, maxChars, line2, line3);
 }
 
 void drawCommentaryBox()
@@ -566,21 +570,34 @@ void drawCommentaryBox()
     }
     std::string displayText = getFirstNWords(comm_fullText, comm_wordsShown);
 
-    // CHANGED: wrap into two lines (~80 chars fits comfortably in 600px)
-    std::string line1, line2;
-    wrapText(displayText, 80, line1, line2);
+    float orthoW = (float)grWinw * 600.0f / (float)grWinh;
+    float scaleX = orthoW / 800.0f;   // 800 is our known base ortho width
 
-    float left   = 250.0f;
-    float width  = 600.0f;
-    float height = 50.0f;   // CHANGED: was 30, now two lines tall
-    float top    = 598.0f;
+    float boxWidth = 485.0f * scaleX;
+    float left     = 215.0f * scaleX;
+    float top      = 595.0f;
+    int   maxChars = 65;
+
+    std::string line1, line2, line3;
+    wrapText(displayText, maxChars, line1, line2, line3);
+
+    int lineCount = 1;
+    if (!line2.empty()) lineCount = 2;
+    if (!line3.empty()) lineCount = 3;
+
+    // All vertical values are fixed in ortho space — no sy scaling
+    float labelH = 20.0f;
+    float lineH  = 16.0f;
+    float padV   = 8.0f;
+    float height = labelH + (lineCount * lineH) + padV;
+
     float bottom = top - height;
-    float right  = left + width;
+    float right  = left + boxWidth;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glColor4f(0.15f, 0.15f, 0.15f, 0.65f);
+    glColor4f(0.067f, 0.067f, 0.067f, 0.82f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -588,20 +605,40 @@ void drawCommentaryBox()
         glVertex2f(left,  top);
     glEnd();
 
-    glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
-    glBegin(GL_LINES);
-        glVertex2f(left,  top);
+    glColor4f(0.18f, 0.18f, 0.18f, 0.82f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
         glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glColor4f(0.91f, 0.255f, 0.165f, 1.0f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,        bottom);
+        glVertex2f(left + 3.0f, bottom);
+        glVertex2f(left + 3.0f, top);
+        glVertex2f(left,        top);
+    glEnd();
+
+    glColor4f(0.165f, 0.165f, 0.165f, 1.0f);
+    glBegin(GL_LINES);
+        glVertex2f(left + 3.0f,  top - labelH);
+        glVertex2f(right - 2.0f, top - labelH);
     glEnd();
 
     glDisable(GL_BLEND);
 
-    glColor3f(1.0f, 1.0f, 1.0f);
-    // CHANGED: line1 near top of box, line2 below
-    drawBitmapText(line1.c_str(), left + 10, bottom + 30);
-    if (!line2.empty())
-        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
+    glColor3f(0.91f, 0.255f, 0.165f);
+    drawBitmapText("LIVE COMMENTARY", left + 8.0f, top - 14.0f);
+
+    glColor3f(0.941f, 0.941f, 0.941f);
+    float textX = left + 8.0f;
+    if (lineCount >= 1) drawBitmapText(line1.c_str(), textX, bottom + lineH * (lineCount - 1) + padV/2);
+    if (lineCount >= 2) drawBitmapText(line2.c_str(), textX, bottom + lineH * (lineCount - 2) + padV/2);
+    if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
 }
+
 
 void LiveCoaching()
 {
@@ -646,21 +683,33 @@ void drawCoachingBox()
     }
     std::string displayText = getFirstNWords(coach_fullText, coach_wordsShown);
 
-    // CHANGED: wrap into two lines
-    std::string line1, line2;
-    wrapText(displayText, 80, line1, line2);
+    float orthoW = (float)grWinw * 600.0f / (float)grWinh;
+    float scaleX = orthoW / 800.0f;
 
-    float left   = 250.0f;
-    float width  = 600.0f;
-    float height = 50.0f;   // CHANGED: was 30, now two lines tall
-    float top    = 598.0f;
+    float boxWidth = 485.0f * scaleX;
+    float left     = 215.0f * scaleX;
+    float top      = 595.0f;
+    int   maxChars = 65;
+
+    std::string line1, line2, line3;
+    wrapText(displayText, maxChars, line1, line2, line3);
+
+    int lineCount = 1;
+    if (!line2.empty()) lineCount = 2;
+    if (!line3.empty()) lineCount = 3;
+
+    float labelH = 20.0f;
+    float lineH  = 16.0f;
+    float padV   = 8.0f;
+    float height = labelH + (lineCount * lineH) + padV;
+
     float bottom = top - height;
-    float right  = left + width;
+    float right  = left + boxWidth;
 
     glEnable(GL_BLEND);
     glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
 
-    glColor4f(0.15f, 0.15f, 0.15f, 0.65f);
+    glColor4f(0.067f, 0.067f, 0.067f, 0.82f);
     glBegin(GL_QUADS);
         glVertex2f(left,  bottom);
         glVertex2f(right, bottom);
@@ -668,19 +717,38 @@ void drawCoachingBox()
         glVertex2f(left,  top);
     glEnd();
 
-    glColor4f(0.6f, 0.6f, 0.6f, 0.5f);
-    glBegin(GL_LINES);
-        glVertex2f(left,  top);
+    glColor4f(0.18f, 0.18f, 0.18f, 0.82f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
         glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    glColor4f(0.176f, 0.561f, 0.961f, 1.0f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,        bottom);
+        glVertex2f(left + 3.0f, bottom);
+        glVertex2f(left + 3.0f, top);
+        glVertex2f(left,        top);
+    glEnd();
+
+    glColor4f(0.165f, 0.165f, 0.165f, 1.0f);
+    glBegin(GL_LINES);
+        glVertex2f(left + 3.0f,  top - labelH);
+        glVertex2f(right - 2.0f, top - labelH);
     glEnd();
 
     glDisable(GL_BLEND);
 
-    glColor3f(1.0f, 1.0f, 1.0f);
-    // CHANGED: line1 near top of box, line2 below
-    drawBitmapText(line1.c_str(), left + 10, bottom + 30);
-    if (!line2.empty())
-        drawBitmapText(line2.c_str(), left + 10, bottom + 12);
+    glColor3f(0.176f, 0.561f, 0.961f);
+    drawBitmapText("COACHING", left + 8.0f, top - 14.0f);
+
+    glColor3f(0.941f, 0.941f, 0.941f);
+    float textX = left + 8.0f;
+    if (lineCount >= 1) drawBitmapText(line1.c_str(), textX, bottom + lineH * (lineCount - 1) + padV/2);
+    if (lineCount >= 2) drawBitmapText(line2.c_str(), textX, bottom + lineH * (lineCount - 2) + padV/2);
+    if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
 }
 
 /* Update screen display */
@@ -775,7 +843,7 @@ void cGrScreen::update(tSituation *s, float Fps)
 			LiveCoaching();
 		}
     	updateTelemetryMessage(curCar, s);
-    	drawChatPanel();
+    	//drawChatPanel();
 		if (commentary){
 			drawCommentaryBox(); 
 		}

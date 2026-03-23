@@ -19,7 +19,7 @@ context = zmq.Context()
 socket = context.socket(zmq.REQ)
 port = "5555"
 socket.connect("tcp://localhost:%s" %port)
-print "Connecting to server..."
+print ("Connecting to server...")
 
 # Set up protobuf class
 serialized_data = torcs_data_pb2.TorcsData()
@@ -65,7 +65,7 @@ while True:
     # image = image.reshape(width, height, 3)
     plt.imshow(image)
     plt.show()
-    print "[width, height] = [{}, {}]".format(width, height)
+    print ("[width, height] = [{}, {}]".format(width, height))
     # print "---steer_angle = {}".format(steer_angle)
 
     # image_dataset.append(image)

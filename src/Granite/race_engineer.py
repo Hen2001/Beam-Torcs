@@ -3,16 +3,75 @@
 import json
 import os
 import time
+import wave
+import subprocess
+import threading
 import torch
+import pyaudio
 import whisper
-from flask import Flask, request, jsonify, render_template_string
-from flask_socketio import SocketIO, emit
+from pynput import keyboard as kb
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import ctypes
+import contextlib
+
+# ── Suppress ALSA/JACK noise ──────────────────────────────────────────────────
+@contextlib.contextmanager
+def suppress_alsa_errors():
+    """Redirect ALSA/JACK stderr noise to /dev/null."""
+    devnull = os.open(os.devnull, os.O_WRONLY)
+    old_stderr = os.dup(2)
+    os.dup2(devnull, 2)
+    os.close(devnull)
+    try:
+        yield
+    finally:
+        os.dup2(old_stderr, 2)
+        os.close(old_stderr)
+
+# ── Environment (must be set before any audio initialisation) ─────────────────
+os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
+os.environ["DISPLAY"]      = os.environ.get("DISPLAY", ":0")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
 DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
-STATS_PATH = os.path.join(DATA_DIR, "end_statistics.json")
-SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
+# STATS_PATH = os.path.join(DATA_DIR, "engineer_data.json")
+# SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
+ENGINEER_PATH = os.path.join(DATA_DIR, "Race_Engineer_Data.json")
+WAV_PATH   = "/tmp/torcs_question.wav"
+
+SAMPLE_RATE   = 16000
+CHANNELS      = 1
+CHUNK         = 1024
+SAMPLE_FORMAT = pyaudio.paInt16
+
+# ── PulseAudio keepalive ──────────────────────────────────────────────────────
+def ensure_pulse():
+    """Check PulseAudio is alive, attempt restart if not."""
+    result = subprocess.run(
+        ["pactl", "--server=unix:/mnt/wslg/PulseServer", "info"],
+        capture_output=True
+    )
+    if result.returncode == 0:
+        print("[RaceEngineer] Audio OK.")
+        return
+
+    print("[RaceEngineer] PulseAudio not responding, attempting restart...")
+    subprocess.run(
+        ["pulseaudio", "--start", "--daemonize=true", "--exit-idle-time=-1"],
+        capture_output=True
+    )
+    time.sleep(2)
+
+    result = subprocess.run(
+        ["pactl", "--server=unix:/mnt/wslg/PulseServer", "info"],
+        capture_output=True
+    )
+    if result.returncode != 0:
+        raise RuntimeError(
+            "[RaceEngineer] Audio unavailable.\n"
+            "Run 'wsl --shutdown' in Windows PowerShell, reopen WSL, then start TORCS again."
+        )
+    print("[RaceEngineer] Audio restarted successfully.")
 
 # ── Load models ───────────────────────────────────────────────────────────────
 print("Loading Whisper...")
@@ -28,52 +87,128 @@ granite    = AutoModelForCausalLM.from_pretrained(
 )
 granite.eval()
 
+# ── Audio device ──────────────────────────────────────────────────────────────
+def get_pulse_device_index(pa):
+    """Find the index of the PulseAudio input device."""
+    for i in range(pa.get_device_count()):
+        d = pa.get_device_info_by_index(i)
+        if d['name'] == 'pulse' and d['maxInputChannels'] > 0:
+            return i
+    raise RuntimeError(
+        "PulseAudio input device not found.\n"
+        "Ensure PULSE_SERVER is set and WSLg is running.\n"
+        "If this keeps failing, run 'wsl --shutdown' from Windows PowerShell and restart."
+    )
+
+# ── Recording ─────────────────────────────────────────────────────────────────
+def record_question(key="r"):
+    """Record audio from the microphone while the specified key is held down."""
+    pressed  = threading.Event()
+    released = threading.Event()
+
+    def on_press(key_event):
+        try:
+            if key_event.char == key and not pressed.is_set():
+                pressed.set()
+        except AttributeError:
+            pass
+
+    def on_release(key_event):
+        try:
+            if key_event.char == key and pressed.is_set():
+                released.set()
+        except AttributeError:
+            pass
+
+    listener = kb.Listener(on_press=on_press, on_release=on_release)
+    listener.start()
+
+    print("[RaceEngineer] Waiting for R key...")
+    pressed.wait()
+    print("[RaceEngineer] Recording...")
+
+    # Open stream AFTER key is pressed, not before
+    with suppress_alsa_errors():
+        pa         = pyaudio.PyAudio()
+        device_idx = get_pulse_device_index(pa)
+        stream     = pa.open(
+            format=SAMPLE_FORMAT,
+            channels=CHANNELS,
+            rate=SAMPLE_RATE,
+            input=True,
+            input_device_index=device_idx,
+            frames_per_buffer=CHUNK
+        )
+
+    frames = []
+    while not released.is_set():
+        frames.append(stream.read(CHUNK, exception_on_overflow=False))
+
+    print("[RaceEngineer] Done recording.")
+    listener.stop()
+    stream.stop_stream()
+    stream.close()
+
+    with suppress_alsa_errors():
+        pa.terminate()
+
+    with wave.open(WAV_PATH, "wb") as wf:
+        wf.setnchannels(CHANNELS)
+        wf.setsampwidth(2)
+        wf.setframerate(SAMPLE_RATE)
+        wf.writeframes(b"".join(frames))
+
+    return WAV_PATH
+
 # ── Race data ─────────────────────────────────────────────────────────────────
 def load_race_context():
+    """Load the current race telemetry data from the engineer data file."""
     context = {}
-    if os.path.exists(STATS_PATH) and os.path.getsize(STATS_PATH) > 0:
-        try:
-            with open(STATS_PATH, "r") as f:
-                context["stats"] = json.load(f)
-        except json.JSONDecodeError:
-            context["stats"] = {}
 
-    if os.path.exists(SPEED_PATH) and os.path.getsize(SPEED_PATH) > 0:
+    if os.path.exists(ENGINEER_PATH) and os.path.getsize(ENGINEER_PATH) > 0:
         try:
-            with open(SPEED_PATH, "r") as f:
-                lines = [l.strip().rstrip(",") for l in f if l.strip() and l.strip() != ","]
-            if lines:
-                last = json.loads(lines[-1])
-                context["current_speed_ms"] = last.get("speedx", 0)
-                context["current_segment"]  = last.get("segment_id", "N/A")
+            with open(ENGINEER_PATH, "r") as f:
+                data = json.load(f)  # parse as single object, not line by line
+                context["current speed in km/h"] = data.get("speed_kmh", 0)
+                context["avg_speed_km/h"] = data.get("avg_speed_kmh", 0)
+                context["distance raced"]  = data.get("dist_raced", "N/A")
+                context["current lap"] = data.get("lap", "N/A")
+                context["fuel"] = data.get("fuel", "N/A")
+                context["tire temperature"] = data.get("avg_tyre_temp", "N/A")
+                context["tire condition"] = data.get("avg_tyre_condition", "N/A")
+                context["brake temperature"] = data.get("avg_brake_temp", "N/A")
+                context["current car damage"] = data.get("damage", "N/A")
+
         except Exception:
             pass
     return context
 
 def build_prompt(question, context):
-    stats = context.get("stats", {})
-    lap_times_str = ", ".join(
-        f"Lap {l['lap']}: {l['time'] * 60.0:.2f}s"
-        for l in stats.get("lap_times", [])
-    ) or "N/A"
+    """Build the prompt for Granite"""
+    fuel  = context.get('fuel', None)
+    fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
 
-    return f"""You are a Formula racing engineer giving real-time advice to a driver. Answer the driver's question concisely in 1-2 sentences using the race data provided.
+    return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only, refer to relevant telemetry data where possible.
 
-Current Race Data:
-- Laps completed: {stats.get('laps_completed', 'N/A')}
-- Lap times: {lap_times_str}
-- Best lap: {stats.get('best_lap_time', 0) * 60.0:.2f}s (target: 70s)
-- Average speed: {stats.get('avg_speed_kmh', 0):.1f} km/h (target: 176 km/h)
-- Current speed: {context.get('current_speed_ms', 0) * 3.6:.1f} km/h
-- Current segment: {context.get('current_segment', 'N/A')}
-- Damage: {stats.get('damage', 0)}
-- Fuel used: {stats.get('fuel_used', 0):.2f}L
+LIVE TELEMETRY:
+- Current Speed: {context.get('current speed in km/h', 0):.1f} km/h
+- Current brake temperature (avg across all brakes): {context.get('brake temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Current tire condition (avg across all tyres): {context.get('tire condition', 'N/A')}  (1.0 = new, 0.0 = destroyed)
+- Current tire temperature (avg across all tyres): {context.get('tire temperature', 'N/A')} (0.0 = cool, 1.0 = hot)
+- Car Damage: {context.get('damage', 0)} / 10000
+- Fuel Remaining: {context.get('fuel', 0)}L
 
-Driver question: {question}
+SESSION DATA:
+- Current Lap: {context.get('current lap', 'N/A')}
+- Distance raced: {context.get('distance raced', 0):.0f}m
+- Average Speed: {context.get('avg_speed_km/h', 0):.1f} km/h
 
-Engineer response:"""
+
+Driver: {question}
+Engineer:"""
 
 def ask_granite(question):
+    """Ask the Granite model a question, providing the current race context, and return the response."""
     context = load_race_context()
     prompt  = build_prompt(question, context)
     inputs  = tokenizer(prompt, return_tensors="pt")
@@ -90,192 +225,30 @@ def ask_granite(question):
     sentences = response.split(".")
     return ". ".join(sentences[:2]).strip() + "."
 
-# ── Flask + SocketIO ──────────────────────────────────────────────────────────
-app      = Flask(__name__)
-socketio = SocketIO(app, cors_allowed_origins="*")
+# ── TTS ───────────────────────────────────────────────────────────────────────
+def speak(text):
+    """Speak the given text using Festival TTS."""
+    # Write to temp file to avoid shell escaping issues
+    with open('/tmp/torcs_speech.txt', 'w') as f:
+        f.write(text)
+    os.system('PULSE_SERVER=unix:/mnt/wslg/PulseServer bash -c "festival --tts < /tmp/torcs_speech.txt"')
 
-HTML = """
-<!DOCTYPE html>
-<html>
-<head>
-    <title>TORCS Race Engineer</title>
-    <script src="https://cdnjs.cloudflare.com/ajax/libs/socket.io/4.0.1/socket.io.js"></script>
-    <style>
-        * { margin: 0; padding: 0; box-sizing: border-box; }
-        body {
-            background: #0a0a0a;
-            color: #e0e0e0;
-            font-family: 'Courier New', monospace;
-            display: flex;
-            flex-direction: column;
-            align-items: center;
-            justify-content: center;
-            min-height: 100vh;
-            padding: 20px;
-        }
-        h1 {
-            color: #00d4ff;
-            font-size: 1.5em;
-            margin-bottom: 30px;
-            letter-spacing: 3px;
-            text-transform: uppercase;
-        }
-        #status {
-            color: #888;
-            font-size: 0.85em;
-            margin-bottom: 20px;
-            letter-spacing: 1px;
-        }
-        #mic-btn {
-            width: 120px;
-            height: 120px;
-            border-radius: 50%;
-            border: 3px solid #00d4ff;
-            background: transparent;
-            color: #00d4ff;
-            font-size: 2.5em;
-            cursor: pointer;
-            transition: all 0.2s;
-            margin-bottom: 30px;
-        }
-        #mic-btn.recording {
-            background: #00d4ff22;
-            border-color: #ff4444;
-            color: #ff4444;
-            animation: pulse 1s infinite;
-        }
-        @keyframes pulse {
-            0%   { box-shadow: 0 0 0 0 #ff444444; }
-            100% { box-shadow: 0 0 0 20px #ff444400; }
-        }
-        #transcript {
-            color: #aaa;
-            font-size: 0.9em;
-            margin-bottom: 15px;
-            min-height: 1.2em;
-        }
-        #response-box {
-            background: #111;
-            border: 1px solid #00d4ff33;
-            border-left: 3px solid #00d4ff;
-            padding: 20px;
-            max-width: 600px;
-            width: 100%;
-            min-height: 80px;
-            font-size: 1em;
-            line-height: 1.6;
-            color: #00d4ff;
-        }
-        #response-label {
-            color: #555;
-            font-size: 0.75em;
-            letter-spacing: 2px;
-            margin-bottom: 8px;
-        }
-        #keyhint {
-            color: #444;
-            font-size: 0.75em;
-            margin-top: 20px;
-            letter-spacing: 1px;
-        }
-    </style>
-</head>
-<body>
-    <h1>⚑ TORCS Race Engineer</h1>
-    <div id="status">READY</div>
-    <button id="mic-btn" onclick="toggleRecording()">🎙</button>
-    <div id="transcript"></div>
-    <div id="response-label">ENGINEER</div>
-    <div id="response-box">Awaiting driver input...</div>
-    <div id="keyhint">PUSH TO TALK: R KEY IN TORCS</div>
-
-    <script>
-        let mediaRecorder = null;
-        let audioChunks   = [];
-        let recording     = false;
-
-        const socket = io();
-
-        socket.on("start_recording", async () => {
-            if (recording) return;
-            console.log("[RaceEngineer] start_recording received");
-            const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
-            mediaRecorder = new MediaRecorder(stream);
-            audioChunks   = [];
-
-            mediaRecorder.ondataavailable = e => audioChunks.push(e.data);
-            mediaRecorder.onstop = sendAudio;
-            mediaRecorder.start();
-
-            recording = true;
-            document.getElementById("mic-btn").classList.add("recording");
-            document.getElementById("status").textContent = "RECORDING...";
-            console.log("[RaceEngineer] Recording started");
-        });
-
-        socket.on("stop_recording", () => {
-            if (!recording) return;
-            console.log("[RaceEngineer] stop_recording received");
-            mediaRecorder.stop();
-            mediaRecorder.stream.getTracks().forEach(t => t.stop());
-            recording = false;
-            document.getElementById("mic-btn").classList.remove("recording");
-            document.getElementById("status").textContent = "PROCESSING...";
-        });
-
-        async function sendAudio() {
-            const blob = new Blob(audioChunks, { type: "audio/webm" });
-            const form = new FormData();
-            form.append("audio", blob, "question.webm");
-
-            const res  = await fetch("/ask", { method: "POST", body: form });
-            const data = await res.json();
-
-            document.getElementById("transcript").textContent   = "You: " + data.question;
-            document.getElementById("response-box").textContent = data.response;
-            document.getElementById("status").textContent       = "READY";
-
-            const utterance = new SpeechSynthesisUtterance(data.response);
-            utterance.rate  = 1.1;
-            window.speechSynthesis.speak(utterance);
-        }
-    </script>
-</body>
-</html>
-"""
-
-@app.route("/")
-def index():
-    return render_template_string(HTML)
-
-@app.route("/start", methods=["POST"])
-def start():
-    print("[RaceEngineer] PTT start received — telling browser to record")
-    socketio.emit("start_recording")
-    return jsonify({"status": "recording"})
-
-@app.route("/stop", methods=["POST"])
-def stop():
-    print("[RaceEngineer] PTT stop received — telling browser to stop and process")
-    socketio.emit("stop_recording")
-    return jsonify({"status": "processing"})
-
-@app.route("/ask", methods=["POST"])
-def ask():
-    audio_file = request.files["audio"]
-    tmp_path   = "/tmp/torcs_question.webm"
-    audio_file.save(tmp_path)
-
-    result   = whisper_model.transcribe(tmp_path)
-    question = result["text"].strip()
-    os.remove(tmp_path)
-
-    if not question:
-        return jsonify({"question": "", "response": "Could not hear anything, please try again."})
-
-    response = ask_granite(question)
-    return jsonify({"question": question, "response": response})
-
+# ── Main loop ─────────────────────────────────────────────────────────────────
 if __name__ == "__main__":
-    print("Race Engineer running at http://localhost:5000")
-    socketio.run(app, host="0.0.0.0", port=5000, allow_unsafe_werkzeug=True)
+    ensure_pulse()
+    print("[RaceEngineer] Ready. Hold R to ask a question.")
+    while True:
+        wav      = record_question(key="r")
+        
+        result   = whisper_model.transcribe(wav)
+        question = result["text"].strip()
+        os.remove(wav)
+
+        if not question:
+            print("[RaceEngineer] Nothing heard, try again.")
+            continue
+
+        print(f"[RaceEngineer] Driver: {question}")
+        response = ask_granite(question)
+        print(f"[RaceEngineer] Engineer: {response}")
+        speak(response)

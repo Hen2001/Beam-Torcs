@@ -79,6 +79,11 @@ typedef struct
     tDynAxis	feedBack;
 
     tdble	preFn, preFt;
+
+    /* Tyre Wear */
+    tdble   T_current;      /* Temperature */
+    tdble   condition;      /* Tyre condition */
+
 } tWheel;
 
     

@@ -39,6 +39,7 @@ last_comment_time   = 0
 COOLDOWN            = 4
 
 def get_sector(seg_id):
+    """Map the segment ID to a sector number (1-9) based on track layout."""
     if seg_id < 40:  return 1
     if seg_id < 100: return 2
     if seg_id < 175: return 3
@@ -68,6 +69,18 @@ def generate_ai(user_prompt, temperature=0.8):
     input_ids = encoded.input_ids
     attn_mask = encoded.attention_mask   # ← fixes the attention mask warning
 
+FREE_PROMPTS = [
+    "You are an F1 TV commentator. Describe the tension in the crowd in ONE short sentence.\nCommentator says: \"",
+    "You are an F1 TV commentator. Comment on the driving style you are seeing in ONE short sentence.\nCommentator says: \"",
+    "You are an F1 TV commentator. React to the conditions on track in ONE short sentence.\nCommentator says: \"",
+    "You are an F1 TV commentator. Say something dramatic about this moment in the race in ONE short sentence.\nCommentator says: \"",
+    "You are an F1 TV commentator. Comment on the car the racer is driving in ONE short sentance: Its a open wheel F1 Car 1.6L Turbo 800hp \nCommentator says: \"",
+]
+
+def generate_free_commentary():
+    """Generate a free-form commentary line using a random prompt."""
+    prompt = random.choice(FREE_PROMPTS)
+    inputs = tokenizer(prompt, return_tensors="pt")
     with torch.no_grad():
         output = model.generate(
             input_ids,
@@ -118,6 +131,9 @@ def prompt_off_track(sector, speed):
         f"The car has left the track in sector {sector} at {speed} km/h. "
         f"Say one dramatic sentence about the car going off track at {speed} km/h."
     )
+def generate_commentary(data):
+    """Generate live commentary based on the current telemetry data."""
+    global last_corkscrew_time, last_lowspeed_time, last_place, last_overtake_time  # Fix 1: added last_place and last_overtake_time
 
 def prompt_corkscrew(speed):
     return (

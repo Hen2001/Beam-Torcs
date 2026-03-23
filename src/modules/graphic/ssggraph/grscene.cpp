@@ -48,14 +48,14 @@
 #include "grutil.h"
 #include "grssgext.h"
 #include "grtexture.h"
-
+#include <string> 
 
 int grWrldX;
 int grWrldY;
 int grWrldZ;
 int grWrldMaxSize;
 tTrack 	 *grTrack;
-
+extern tTrack *curTrack;
 ssgStateSelector	*grEnvSelector;
 grMultiTexState	*grEnvState=NULL;
 grMultiTexState	*grEnvShadowState=NULL;
@@ -161,7 +161,163 @@ grInitScene(void)
 
     return 0;
 }
+void grAddSideBanner(void)
+{
+    // Position your banner here (world X, Y, Z coordinates)
+   float tx = grTrack->seg->vertex[TR_EL].x - grTrack->seg->vertex[TR_SL].x;
+float ty = grTrack->seg->vertex[TR_EL].y - grTrack->seg->vertex[TR_SL].y;
 
+// Normalise
+float len = sqrt(tx*tx + ty*ty);
+tx /= len;
+ty /= len;
+
+float forward = 1000.0f; // how far along the track to move it
+float side = 20.0f;    
+
+float bx = grTrack->seg->vertex[TR_SL].x + tx * forward - ty * side;
+float by = grTrack->seg->vertex[TR_SL].y + ty * forward + tx * side;
+float bz = grTrack->seg->vertex[TR_SL].z + 100.0f;
+
+    float width  = 200.0f; 
+    float height = 100.0f;  
+
+    
+    float nx = 1.0f, ny = 0.0f;
+
+    sgVec3 vtx;
+    sgVec2 tex;
+    sgVec4 clr = {1, 1, 1, 1};
+    sgVec3 nrm = {nx, ny, 0};
+
+    ssgVertexArray    *vtx_arr = new ssgVertexArray(4);
+    ssgTexCoordArray  *tex_arr = new ssgTexCoordArray(4);
+    ssgColourArray    *clr_arr = new ssgColourArray(1);
+    ssgNormalArray    *nrm_arr = new ssgNormalArray(1);
+
+    clr_arr->add(clr);
+    nrm_arr->add(nrm);
+
+    // Bottom-left
+    tex[0] = 0.0f; tex[1] = 0.0f;
+    vtx[0] = bx;   vtx[1] = by;            vtx[2] = bz;
+    tex_arr->add(tex); vtx_arr->add(vtx);
+
+    // Top-left
+    tex[0] = 0.0f; tex[1] = 1.0f;
+    vtx[0] = bx;   vtx[1] = by;            vtx[2] = bz + height;
+    tex_arr->add(tex); vtx_arr->add(vtx);
+
+    // Bottom-right
+    tex[0] = 1.0f; tex[1] = 0.0f;
+    vtx[0] = bx;   vtx[1] = by - width;    vtx[2] = bz;
+    tex_arr->add(tex); vtx_arr->add(vtx);
+
+    // Top-right
+    tex[0] = 1.0f; tex[1] = 1.0f;
+    vtx[0] = bx;   vtx[1] = by - width;    vtx[2] = bz + height;
+    tex_arr->add(tex); vtx_arr->add(vtx);
+
+    ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
+
+   
+//     std::string texDir = std::string(getenv("HOME")) + "/Beam-Torcs";
+
+// ssgState *st = grSsgLoadTexStateEx("John.png",
+//                                     const_cast<char*>(texDir.c_str()),
+//                                     FALSE, FALSE);
+//     if (!st) {
+//         GfOut("grAddSideBanner: failed to load banner texture\n");
+//         return;
+//     }
+    // ((ssgSimpleState*)st)->setShininess(0);
+    // ((ssgSimpleState*)st)->disable(GL_LIGHTING);  
+
+    // banner->setState(st);
+    // banner->setCullFace(0);  // visible from both sides
+
+    // LandAnchor->addKid(banner);
+}
+
+void grAddSideBanner2(void)
+{
+    float tx = grTrack->seg->vertex[TR_EL].x - grTrack->seg->vertex[TR_SL].x;
+    float ty = grTrack->seg->vertex[TR_EL].y - grTrack->seg->vertex[TR_SL].y;
+
+    float len = sqrt(tx*tx + ty*ty);
+    tx /= len;
+    ty /= len;
+
+    float forward = 5.20f;
+    float side = 5.0f;
+
+    float bx = grTrack->seg->vertex[TR_SL].x + tx * forward - ty * side;
+    float by = grTrack->seg->vertex[TR_SL].y + ty * forward + tx * side;
+    float bz = grTrack->seg->vertex[TR_SL].z + 5.1f;
+
+    float width  = 12.0f;
+    float height = 4.0f;
+
+    float nx = 1.0f, ny = 0.0f;
+
+    sgVec3 vtx;
+    sgVec2 tex;
+    sgVec3 nrm = {nx, ny, 0};
+
+    ssgVertexArray    *vtx_arr = new ssgVertexArray(4);
+    ssgTexCoordArray  *tex_arr = new ssgTexCoordArray(4);
+    ssgColourArray    *clr_arr = new ssgColourArray(4);  // 4 per-vertex colours now
+    ssgNormalArray    *nrm_arr = new ssgNormalArray(1);
+
+    nrm_arr->add(nrm);
+
+    // Gradient: dark left, bright right (matching TORCS sign style)
+    sgVec4 clrBottomLeft  = {0.15f, 0.12f, 0.08f, 1.0f};  // dark brownish-black
+    sgVec4 clrTopLeft     = {0.15f, 0.12f, 0.08f, 1.0f};  // same dark on top-left
+    sgVec4 clrBottomRight = {0.85f, 0.80f, 0.70f, 1.0f};  // warm off-white/cream
+    sgVec4 clrTopRight    = {0.85f, 0.80f, 0.70f, 1.0f};  // same warm on top-right
+
+    // Bottom-left
+    tex[0] = 0.0f; tex[1] = 0.0f;
+    vtx[0] = bx;   vtx[1] = by;         vtx[2] = bz;
+    tex_arr->add(tex); vtx_arr->add(vtx); clr_arr->add(clrBottomLeft);
+
+    // Top-left
+    tex[0] = 0.0f; tex[1] = 1.0f;
+    vtx[0] = bx;   vtx[1] = by;         vtx[2] = bz + height;
+    tex_arr->add(tex); vtx_arr->add(vtx); clr_arr->add(clrTopLeft);
+
+    // Bottom-right
+    tex[0] = 1.0f; tex[1] = 0.0f;
+    vtx[0] = bx;   vtx[1] = by - width; vtx[2] = bz;
+    tex_arr->add(tex); vtx_arr->add(vtx); clr_arr->add(clrBottomRight);
+
+    // Top-right
+    tex[0] = 1.0f; tex[1] = 1.0f;
+    vtx[0] = bx;   vtx[1] = by - width; vtx[2] = bz + height;
+    tex_arr->add(tex); vtx_arr->add(vtx); clr_arr->add(clrTopRight);
+
+//     ssgVtxTable *banner = new ssgVtxTable(GL_TRIANGLE_STRIP, vtx_arr, nrm_arr, tex_arr, clr_arr);
+
+//   if (strcmp(grTrack->internalname, "corkscrew") == 0) {
+//     std::string texDir = std::string(TORCS_SOURCE_DIR);
+//     ssgState *st = grSsgLoadTexStateEx("SHU_Banner.png",
+//                                         const_cast<char*>(texDir.c_str()),
+//                                         FALSE, FALSE);
+//    if (!st) {
+//         GfOut("grAddSideBanner: failed to load banner texture\n");
+//         return;
+// }
+//     ((ssgSimpleState*)st)->setShininess(0);
+//     ((ssgSimpleState*)st)->disable(GL_LIGHTING);
+
+//     banner->setState(st);
+//     banner->setCullFace(0);
+
+//     LandAnchor->addKid(banner);
+//     }
+//     printf("Track internal name: %s\n", grTrack->internalname);
+}
 static ssgLoaderOptionsEx	options;
 
 int
@@ -187,6 +343,7 @@ grLoadScene(tTrack *track)
 	/* Landscape */
 	LandAnchor = new ssgBranch;
 	TheScene->addKid(LandAnchor);
+
 
 	/* Pit stops walls */
 	PitsAnchor = new ssgBranch;
@@ -237,6 +394,8 @@ grLoadScene(tTrack *track)
 	desc = grssgLoadAC3D(acname, NULL);
 	LandAnchor->addKid(desc);
 
+	grAddSideBanner();
+	grAddSideBanner2();
 	return 0;
 }
 
