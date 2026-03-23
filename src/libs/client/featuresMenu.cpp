@@ -18,52 +18,48 @@ static void ToggleAnalysis(void *unused)
     );
 }
 
+static void DisableAll(void)
+{
+    commentary = false;
+    coach = false;
+    engineer = false;
+
+    GfuiButtonSetText(featuresHandle, commentaryButtonId, "Live Commentary: OFF");
+    GfuiButtonSetText(featuresHandle, coachButtonId, "Granite Live Coach: OFF");
+    GfuiButtonSetText(featuresHandle, engineerButtonId, "Race Engineer: OFF");
+}
+
 static void ToggleCommentary(void *unused)
 {
-    commentary = !commentary;
-    GfuiButtonSetText(
-        featuresHandle,
-        commentaryButtonId,
-        commentary ? "Live Commentary: ON" : "Live Commentary: OFF"
-    );
-    if (coach)
+    bool wasOn = commentary;
+    DisableAll();
+    if (!wasOn)
     {
-        coach = !coach;
-        GfuiButtonSetText(
-        featuresHandle,
-        coachButtonId,
-        coach ? "Granite Live Coach: ON" : "Granite Live Coach: OFF"
-    );
+        commentary = true;
+        GfuiButtonSetText(featuresHandle, commentaryButtonId, "Live Commentary: ON");
     }
 }
 
 static void ToggleCoach(void *unused)
 {
-    coach = !coach;
-    GfuiButtonSetText(
-        featuresHandle,
-        coachButtonId,
-        coach ? "Granite Live Coach: ON" : "Granite Live Coach: OFF"
-    );
-    if (commentary)
+    bool wasOn = coach;
+    DisableAll();
+    if (!wasOn)
     {
-        commentary = !commentary;
-        GfuiButtonSetText(
-        featuresHandle,
-        commentaryButtonId,
-        commentary ? "Live Commentary: ON" : "Live Commentary: OFF"
-    );
+        coach = true;
+        GfuiButtonSetText(featuresHandle, coachButtonId, "Granite Live Coach: ON");
     }
 }
 
 static void ToggleEngineer(void *unused)
 {
-    engineer = !engineer;
-    GfuiButtonSetText(
-        featuresHandle,
-        engineerButtonId,  // was wrongly using coachButtonId
-        engineer ? "Race Engineer: ON" : "Race Engineer: OFF"
-    );
+    bool wasOn = engineer;
+    DisableAll();
+    if (!wasOn)
+    {
+        engineer = true;
+        GfuiButtonSetText(featuresHandle, engineerButtonId, "Race Engineer: ON");
+    }
 }
 
 void* FeaturesMenuInit(void *prevMenu)
