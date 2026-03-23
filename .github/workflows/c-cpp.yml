@@ -13,16 +13,8 @@ jobs:
 
     steps:
     - uses: actions/checkout@v4
-    - name: Install OpenGL development libraries
-      run: sudo apt-get update && sudo apt-get install -y libgl1-mesa-dev freeglut3-dev
-    - name: Install PLIB dependencies
-      run: |
-        sudo apt-get update
-        sudo apt-get install -y build-essential cmake libx11-dev libxext-dev libxi-dev
-        git clone https://github.com/Simple-OpenGL-Image-Library/PLIB.git
-        cd PLIB
-        cmake .
-        sudo make install
+    - name: Install Dependencies
+      run: sudo apt-get install libglib2.0-dev  libgl1-mesa-dev libglu1-mesa-dev  freeglut3-dev  libplib-dev  libopenal-dev libalut-dev libxi-dev libxmu-dev libxrender-dev  libxrandr-dev libpng-dev libvorbis-dev
     - name: make
       run: make
     - name: make check
