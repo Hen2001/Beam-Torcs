@@ -456,12 +456,13 @@ SimShutdown(void)
     if (SimCarTable) {
 	for (ncar = 0; ncar < SimNbCars; ncar++) {
 	    car = &(SimCarTable[ncar]);
+		delete car->options;
 	    SimEngineShutdown(car);
 	}
 	free(SimCarTable);
 	SimCarTable = 0;
     }
-	delete car->options;
+
 }
 
 
