@@ -62,7 +62,7 @@ while True:
     # plt.imshow(image)
     # plt.show()
 
-    print "[width, height] = [{}, {}]".format(width, height)
+    print ("[width, height] = [{}, {}]".format(width, height))
 
     # image_dataset.append(image)
     # if save_falg == 1:

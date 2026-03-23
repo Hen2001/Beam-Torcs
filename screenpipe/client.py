@@ -65,7 +65,7 @@ while True:
     # image = image.reshape(width, height, 3)
     plt.imshow(image)
     plt.show()
-    print "[width, height] = [{}, {}]".format(width, height)
+    print ("[width, height] = [{}, {}]".format(width, height))
     # print "---steer_angle = {}".format(steer_angle)
 
     # image_dataset.append(image)
