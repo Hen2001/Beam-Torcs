@@ -14,7 +14,9 @@ jobs:
     steps:
     - uses: actions/checkout@v4
     - name: Install Dependencies
-      run: sudo apt-get install libglib2.0-dev  libgl1-mesa-dev libglu1-mesa-dev  freeglut3-dev  libplib-dev  libopenal-dev libalut-dev libxi-dev libxmu-dev libxrender-dev  libxrandr-dev libpng-dev libvorbis-dev
+      run: |
+        sudo apt-get update
+        sudo apt-get install libglib2.0-dev libgl1-mesa-dev libglu1-mesa-dev freeglut3-dev libplib-dev libopenal-dev libalut-dev libxi-dev libxmu-dev libxrender-dev libxrandr-dev libpng-dev libjpeg-dev libfreetype6-dev libcurl4-openssl-dev libssl-dev uuid-dev libpulse-dev zlib1g-dev libxft-dev libxext-dev cmake libpng++-dev libtinyxml-dev libglew-dev libspdlog-dev qtbase5-dev qtchooser qt5-qmake qtbase5-dev-tools libqt5opengl5-dev
     - name: make
       run: make
     - name: make check
