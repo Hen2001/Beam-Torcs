@@ -89,6 +89,7 @@ granite.eval()
 
 # ── Audio device ──────────────────────────────────────────────────────────────
 def get_pulse_device_index(pa):
+    """Find the index of the PulseAudio input device."""
     for i in range(pa.get_device_count()):
         d = pa.get_device_info_by_index(i)
         if d['name'] == 'pulse' and d['maxInputChannels'] > 0:
@@ -101,6 +102,7 @@ def get_pulse_device_index(pa):
 
 # ── Recording ─────────────────────────────────────────────────────────────────
 def record_question(key="r"):
+    """Record audio from the microphone while the specified key is held down."""
     pressed  = threading.Event()
     released = threading.Event()
 
@@ -160,6 +162,7 @@ def record_question(key="r"):
 
 # ── Race data ─────────────────────────────────────────────────────────────────
 def load_race_context():
+    """Load the current race telemetry data from the engineer data file."""
     context = {}
 
     if os.path.exists(ENGINEER_PATH) and os.path.getsize(ENGINEER_PATH) > 0:
@@ -181,6 +184,7 @@ def load_race_context():
     return context
 
 def build_prompt(question, context):
+    """Build the prompt for Granite"""
     fuel  = context.get('fuel', None)
     fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
 
@@ -204,6 +208,7 @@ Driver: {question}
 Engineer:"""
 
 def ask_granite(question):
+    """Ask the Granite model a question, providing the current race context, and return the response."""
     context = load_race_context()
     prompt  = build_prompt(question, context)
     inputs  = tokenizer(prompt, return_tensors="pt")
@@ -222,6 +227,7 @@ def ask_granite(question):
 
 # ── TTS ───────────────────────────────────────────────────────────────────────
 def speak(text):
+    """Speak the given text using Festival TTS."""
     # Write to temp file to avoid shell escaping issues
     with open('/tmp/torcs_speech.txt', 'w') as f:
         f.write(text)

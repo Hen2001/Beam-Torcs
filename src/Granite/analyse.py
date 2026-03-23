@@ -20,6 +20,7 @@ GREEN = "\033[92m"
 RESET = "\033[0m"
 
 def print_header(text):
+    """Print a formatted header for a section."""
     print(f"\n{BOLD}{CYAN}── {text} ──{RESET}")
 
 # ── Load data ─────────────────────────────────────────────────────────────────

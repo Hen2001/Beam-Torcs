@@ -19,7 +19,7 @@ context = zmq.Context()
 socket = context.socket(zmq.REQ)
 port = "5555"
 socket.connect("tcp://localhost:%s" %port)
-print "Connecting to server..."
+print ("Connecting to server...")
 
 # Set up protobuf class
 serialized_data = torcs_data_pb2.TorcsData()

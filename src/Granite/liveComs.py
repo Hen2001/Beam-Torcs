@@ -21,6 +21,7 @@ last_place = None
 last_overtake_time = 0
 
 def get_sector(seg_id):
+    """Map the segment ID to a sector number (1-9) based on track layout."""
     if seg_id < 40:  return 1
     if seg_id < 100: return 2
     if seg_id < 175: return 3
@@ -41,6 +42,7 @@ FREE_PROMPTS = [
 ]
 
 def generate_free_commentary():
+    """Generate a free-form commentary line using a random prompt."""
     prompt = random.choice(FREE_PROMPTS)
     inputs = tokenizer(prompt, return_tensors="pt")
     with torch.no_grad():
@@ -56,6 +58,7 @@ def generate_free_commentary():
     return result.split('"')[0].split('\n')[0].strip()
 
 def generate_commentary(data):
+    """Generate live commentary based on the current telemetry data."""
     global last_corkscrew_time, last_lowspeed_time, last_place, last_overtake_time  # Fix 1: added last_place and last_overtake_time
 
     sector = get_sector(data['Segment'])
