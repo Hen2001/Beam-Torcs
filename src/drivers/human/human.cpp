@@ -904,6 +904,7 @@ static void clearDrivingData()
 		"live_data.json",
 		"live_coaching_data.json",
 		"granite_analysis.txt",
+		"granite_error.log",
         // "inputs.json",
         NULL  
     };
@@ -939,28 +940,30 @@ void newrace(int index, tCarElt* car, tSituation *s)
     segmentStartTime = 0.0;
     memset(inMemSegTimes, 0, sizeof(inMemSegTimes));
 
-	if (coach) {
-        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
-		std::string cmd = "python3 " + 
-                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveCoach.py &";
-		system(cmd.c_str());
-    }
-    if (commentary) {
-        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
-			std::string cmd = "python3 " + 
-                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
-		system(cmd.c_str());
-    }
+	// if (coach) {
+    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
+	// 	std::string cmd = "python3 " + 
+    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveCoach.py &";
+	// 	system(cmd.c_str());
+    // }
+    // if (commentary) {
+    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+	// 		std::string cmd = "python3 " + 
+    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
+	// 	system(cmd.c_str());
+    // }
 	
-	if (engineer) {
-        // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
-		// Wake WSLg PulseAudio before launching script
-    	system("PULSE_SERVER=unix:/mnt/wslg/PulseServer pactl info > /dev/null 2>&1");
+	// if (engineer) {
+    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
+	// 	// Wake WSLg PulseAudio before launching script
+    // 	system("PULSE_SERVER=unix:/mnt/wslg/PulseServer pactl info > /dev/null 2>&1");
     
-			std::string cmd = "python3 " + 
-                  std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
-		system(cmd.c_str());
-    }
+	// 		std::string cmd = "python3 " + 
+    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
+	// 	system(cmd.c_str());
+    // }
+
+	
 	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));
 	lapCount = 0;

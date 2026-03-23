@@ -1,5 +1,11 @@
 import json, time, os, torch, random
 from transformers import AutoTokenizer, AutoModelForCausalLM
+import sys
+
+# Redirect stderr to the log file so TORCS can read progress
+log_path = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData", "granite_error.log")
+log_file = open(log_path, 'w', buffering=1)  # line buffered
+sys.stderr = log_file
 
 DATA_PATH = os.path.expanduser("~/.torcs/DrivingData/live_data.json")
 MODEL_NAME = "ibm-granite/granite-4.0-350m"
