@@ -461,6 +461,7 @@ SimShutdown(void)
 	free(SimCarTable);
 	SimCarTable = 0;
     }
+	delete car->options;
 }
 
 

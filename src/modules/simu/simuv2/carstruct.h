@@ -31,6 +31,7 @@
 #include "wheel.h"
 #include "transmission.h"
 #include "engine.h"
+#include "SimulationOptions.h"
 
 typedef struct
 {
@@ -87,6 +88,7 @@ typedef struct
 
     int		collisionAware;
 	tdble	speed;		// total speed = sqrt(vx*vx + vy*vy + vz*vz) 
+    SimulationOptions* options;
 } tCar;
 
 #if 0
