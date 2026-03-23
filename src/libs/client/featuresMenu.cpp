@@ -26,6 +26,15 @@ static void ToggleCommentary(void *unused)
         commentaryButtonId,
         commentary ? "Live Commentary: ON" : "Live Commentary: OFF"
     );
+    if (coach)
+    {
+        coach = !coach;
+        GfuiButtonSetText(
+        featuresHandle,
+        coachButtonId,
+        coach ? "Granite Live Coach: ON" : "Granite Live Coach: OFF"
+    );
+    }
 }
 
 static void ToggleCoach(void *unused)
@@ -36,6 +45,15 @@ static void ToggleCoach(void *unused)
         coachButtonId,
         coach ? "Granite Live Coach: ON" : "Granite Live Coach: OFF"
     );
+    if (commentary)
+    {
+        commentary = !commentary;
+        GfuiButtonSetText(
+        featuresHandle,
+        commentaryButtonId,
+        commentary ? "Live Commentary: ON" : "Live Commentary: OFF"
+    );
+    }
 }
 
 static void ToggleEngineer(void *unused)
