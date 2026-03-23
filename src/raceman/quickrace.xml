@@ -60,8 +60,8 @@
     <attnum name="focused idx" val="1"/>
     <attstr name="focused module" val="human"/>   
      <section name="1">
-      <attnum name="idx" val="0"/>
-      <attstr name="module" val="player"/>          
+      <attnum name="idx" val="1"/>
+      <attstr name="module" val="human"/>          
       </section>
   </section>
 
