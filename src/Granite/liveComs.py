@@ -17,6 +17,8 @@ print("Model loaded successfully!")
 TEMPLATE_CHANCE = 0.6
 last_corkscrew_time = 0
 last_lowspeed_time = 0
+last_place = None
+last_overtake_time = 0
 
 def get_sector(seg_id):
     if seg_id < 40:  return 1
@@ -25,7 +27,7 @@ def get_sector(seg_id):
     if seg_id < 235: return 4
     if seg_id < 310: return 5
     if seg_id < 390: return 6
-    if seg_id < 500: return 7
+    if seg_id < 500: return 7 
     if seg_id < 540: return 8
     if seg_id < 604: return 9
     return 9
@@ -33,9 +35,9 @@ def get_sector(seg_id):
 FREE_PROMPTS = [
     "You are an F1 TV commentator. Describe the tension in the crowd in ONE short sentence.\nCommentator says: \"",
     "You are an F1 TV commentator. Comment on the driving style you are seeing in ONE short sentence.\nCommentator says: \"",
-    "You are an F1 TV commentator. Talk about the championship implications of this race in ONE short sentence.\nCommentator says: \"",
     "You are an F1 TV commentator. React to the conditions on track in ONE short sentence.\nCommentator says: \"",
     "You are an F1 TV commentator. Say something dramatic about this moment in the race in ONE short sentence.\nCommentator says: \"",
+    "You are an F1 TV commentator. Comment on the car the racer is driving in ONE short sentance: Its a open wheel F1 Car 1.6L Turbo 800hp \nCommentator says: \"",
 ]
 
 def generate_free_commentary():
@@ -54,7 +56,7 @@ def generate_free_commentary():
     return result.split('"')[0].split('\n')[0].strip()
 
 def generate_commentary(data):
-    global last_corkscrew_time, last_lowspeed_time
+    global last_corkscrew_time, last_lowspeed_time, last_place, last_overtake_time  # Fix 1: added last_place and last_overtake_time
 
     sector = get_sector(data['Segment'])
     track_pos = data['trackPos']
@@ -62,10 +64,11 @@ def generate_commentary(data):
     damage_str = "no damage" if data['damage'] == 0 else f"damage at level {data['damage']}"
     speed = int(data['speed'])
     gear = data['gear']
+    place = int(data['place'])
 
     # Off track always takes priority
     if off_track:
-        fact_line = f"The car is OFF TRACK in sector {sector}, speed {speed}km/h, gear {gear}, {damage_str}."
+        fact_line = f"The car is OFF TRACK in sector {sector}, speed {speed}km/h"
         prompt = (
             f"F1 commentator reacts in ONE punchy sentence with NO generic phrases like 'looks like' or 'situation'.\n"
             f"Facts: {fact_line}\n"
@@ -117,14 +120,29 @@ def generate_commentary(data):
         now = time.time()
         if now - last_lowspeed_time >= 60:
             last_lowspeed_time = now
-            return f"{speed}km/h? What's he playing at? This ain't go-karting buddy."
+            return f"{speed}km/h? What are they playing at!?"
+
+    # Overtake - 
+    now = time.time()  
+    if last_place is not None and place < last_place and (now - last_overtake_time) >= 10:
+        last_overtake_time = now
+        last_place = place
+        lines = [
+            f"OVERTAKE! He's moved up to P{place}! What a move!",
+            f"He goes past! Up to position {place} now!",
+            f"P{place}! He's done it, he's through!",
+            f"Brilliant overtake! That's P{place} for him!",
+        ]
+        return random.choice(lines)
+
+    last_place = place
 
     # Random free line
     if random.random() < TEMPLATE_CHANCE:
         return generate_free_commentary()
 
     # Standard data-driven commentary
-    fact_line = f"Sector {sector} of 9, speed {speed}km/h, gear {gear}, {damage_str}."
+    fact_line = f"Sector {sector} of 9, speed {speed}km/h, gear {gear}, {damage_str}." ## Add position?
     prompt = (
         f"F1 commentator reacts in ONE punchy sentence with NO generic phrases like 'looks like' or 'situation'.\n"
         f"Facts: {fact_line}\n"
@@ -145,7 +163,7 @@ def generate_commentary(data):
     result = result.split('"')[0].split('\n')[0].strip()
 
     if str(speed) not in result and str(sector) not in result:
-        result = f"Sector {sector}, pushing hard at {speed}km/h in gear {gear}!"
+        result = f"Sector {sector}, pushing hard at {speed}km/h in gear {gear}!" # This is generic and bad
 
     return result
 
@@ -164,3 +182,29 @@ while True:
     except Exception as e:
         print(e)
     time.sleep(0.5)
+
+    ''' 
+
+
+Prompting:
+
+    Free prompts:
+    
+        - Location
+        - Weather
+        - The race car (maybe import the car the user is driving e.g: ow1 to the live data file?)
+
+    Event Prompts:
+
+        - The Corkscrew
+        - Too fast
+        - Too slow
+        - Going off the track
+        - Overtake 
+        - Lap time better or worse
+        - Good segment time
+
+
+
+
+    '''

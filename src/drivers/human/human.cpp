@@ -422,30 +422,61 @@ void writeSegmentTimeToJson(int segment, int lap, double time) {
     }
 }
 
+// At file scope, near the other static segment tracking variables
+static double inMemSegTimes[100][9] = {0}; // [lap][macroSeg]
+
 void logSegmentPosition(tCarElt *car, tSituation *s)
 {
-	int segId = car->_trkPos.seg->id;
-	int macroSeg = getMacroSegment(segId);
-	int lap = car->_laps;
+    int segId    = car->_trkPos.seg->id;
+    int macroSeg = getMacroSegment(segId);
+    int lap      = car->_laps;
 
-	// Detect lap change
-	if (lap != lastLap)
-	{
-		lastLap = lap;
-		lastMacroSegment = -1;
-	}
+    // ── Lap change detected ──────────────────────────────────────────────
+    if (lap != lastLap && lastLap != -1)
+    {
+        // Close off the final segment of the completed lap
+        if (lastMacroSegment != -1)
+        {
+            double timeSpent = s->currentTime - segmentStartTime;
+            inMemSegTimes[lastLap][lastMacroSegment] += timeSpent;
+            writeSegmentTimeToJson(lastMacroSegment, lastLap, timeSpent);
+        }
 
-	if (macroSeg != lastMacroSegment)
-	{
-		if (lastMacroSegment != -1)
-		{
-			double timeSpent = s->currentTime - segmentStartTime;
-			writeSegmentTimeToJson(lastMacroSegment, lap, timeSpent);
-		}
+        // Sum all 9 macro segments → computed lap time
+        double computedLapTime = 0.0;
+        for (int i = 0; i < 9; i++)
+            computedLapTime += inMemSegTimes[lastLap][i];
 
-		segmentStartTime = s->currentTime;
-		lastMacroSegment = macroSeg;
-	}
+        if (computedLapTime > 0.0 && lapCount < 100)
+        {
+            lapTimes[lapCount++] = computedLapTime;
+            printf("[LapTime] Lap %d computed from segments: %.3f s\n",
+                   lastLap, computedLapTime);
+        }
+
+        // Reset for new lap
+        lastLap          = lap;
+        lastMacroSegment = -1;
+        segmentStartTime = s->currentTime;
+        return;
+    }
+
+    if (lap != lastLap)
+        lastLap = lap;
+
+    // ── Macro segment transition ─────────────────────────────────────────
+    if (macroSeg != lastMacroSegment)
+    {
+        if (lastMacroSegment != -1)
+        {
+            double timeSpent = s->currentTime - segmentStartTime;
+            inMemSegTimes[lap][lastMacroSegment] += timeSpent;
+            writeSegmentTimeToJson(lastMacroSegment, lap, timeSpent);
+        }
+
+        segmentStartTime = s->currentTime;
+        lastMacroSegment = macroSeg;
+    }
 }
 
   
@@ -476,16 +507,13 @@ static void endStatistics(tCarElt* car, tSituation *s)
     }
 
     outFile << "{"
-        << "\"avg_speed_ms\":"   << avgSpeed              << ","
         << "\"avg_speed_kmh\":"  << avgSpeed * 3.6        << ","
         << "\"avg_lap_time\":"   << avgLapTime            << ","
-        << "\"best_lap_time\":"  << car->_bestLapTime     << ","
-        << "\"last_lap_time\":"  << car->_lastLapTime     << ","
+        << "\"best_lap_time\":"  << car->_deltaBestLapTime << ","
         << "\"laps_completed\":" << lapCount              << ","
-        << "\"total_distance\":" << car->_distRaced       << ","
         << "\"finish_pos\":"     << car->_pos             << ","
         << "\"damage\":"         << car->_dammage         << ","
-        << "\"fuel_used\":"      << (car->_tank - car->_fuel) << ","
+		<< "\"time_penalty\":"	 << car->_penaltyTime	  << ","
         << "\"lap_times\":[";
 
     for (int i = 0; i < lapCount; i++) {
@@ -588,6 +616,7 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
                  << "\"distToStart\":" << car->_trkPos.toStart << ","
                  << "\"damage\":" << car->_dammage << ","
                  << "\"trackPos\":" << car->_trkPos.toMiddle << ","
+				 << "\"place\":" << car->_pos << ","
 				 << "\"Segment\":" << car->_trkPos.seg->id  << ""
                  << "}";
         liveFile.close();
@@ -889,6 +918,14 @@ static void clearDrivingData()
 static void endrace(int index, tCarElt* car, tSituation *s)
 {
     if (!statsWritten) {
+        // Flush the last open segment into lapTimes if not already done
+        if (lastMacroSegment != -1 && lastLap != -1) {
+            double timeSpent = 0.0;
+            for (int i = 0; i < 9; i++)
+                timeSpent += inMemSegTimes[lastLap][i];
+            if (timeSpent > 5.0 && lapCount < 100)
+                lapTimes[lapCount++] = timeSpent;
+        }
         endStatistics(car, s);
         statsWritten = true;
     }
@@ -897,7 +934,11 @@ static void endrace(int index, tCarElt* car, tSituation *s)
 void newrace(int index, tCarElt* car, tSituation *s)
 {
 	clearDrivingData();
-	
+	lastLap          = -1;
+    lastMacroSegment = -1;
+    segmentStartTime = 0.0;
+    memset(inMemSegTimes, 0, sizeof(inMemSegTimes));
+
 	if (coach) {
         // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
 		std::string cmd = "python3 " + 
@@ -1544,23 +1585,12 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 
 if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
-        if (lapCount < 100) {
-            lapTimes[lapCount++] = car->_lastLapTime;
-        }
+
         endStatistics(car, s);
-        logSegmentPosition(car, s);
         // If this lap completion also consumed the last remaining lap, mark stats as written
         if (car->_remainingLaps == 0) {
             statsWritten = true;
         }
-    }
-    if (prevRemainingLaps > 0 && car->_remainingLaps == 0 && !statsWritten) {
-        printf("DEBUG: final lap detected, curLapTime=%.3f\n", car->_curLapTime);
-        if (car->_curLapTime > 0.0 && lapCount < 100) {
-            lapTimes[lapCount++] = car->_curLapTime;
-        }
-        endStatistics(car, s);
-        statsWritten = true;
     }
 
     prevRemainingLaps = car->_remainingLaps;

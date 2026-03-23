@@ -45,7 +45,6 @@ Race Statistics:
 - Average speed: {stats.get('avg_speed_kmh', 0):.1f} km/h (target: 176 km/h)
 - Total distance: {stats.get('total_distance', 0):.0f}m
 - Damage taken: {stats.get('damage', 0)}
-- Fuel used: {stats.get('fuel_used', 0):.2f}L
 - Finish position: {stats.get('finish_pos', 'N/A')}
 
 Give 4-5 sentences of direct coaching feedback covering: consistency, speed, damage/incidents, and one specific thing to focus on next session.
@@ -72,7 +71,7 @@ with torch.no_grad():
         **inputs,
         max_new_tokens=200,
         do_sample=False,
-        temperature=1.0,
+        temperature=0.8,
         repetition_penalty=1.1,
         pad_token_id=tokenizer.eos_token_id
     )
