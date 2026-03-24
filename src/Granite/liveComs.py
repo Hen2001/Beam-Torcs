@@ -32,10 +32,8 @@ else:
     print("[WARN] No chat template — using manual fallback.")
 
 
-<<<<<<< HEAD
 def get_sector(seg_id):
     """Map the segment ID to a sector number (1-9) based on track layout."""
-=======
 # ══════════════════════════════════════════════════════════════════════════════
 #  EVENT CONTROLLER
 # ══════════════════════════════════════════════════════════════════════════════
@@ -69,7 +67,6 @@ CFG = {
 
 # ── Sector helper ─────────────────────────────────────────────────────────────
 def get_sector(seg_id: int) -> int:
->>>>>>> e665df8 (Chnaged prompt layout for the comms - uses an event controller. Also added segment times for all other maps, changed the printout report to accomodate this and various other changes.)
     if seg_id < 40:  return 1
     if seg_id < 100: return 2
     if seg_id < 175: return 3
