@@ -44,5 +44,5 @@ sudo make install
 
 torcs
 
-*you can now configure and start your race, if you press 'r', you will be prompted for microphone access in your browser, click allow & now you can hold 'r' to talk to your race_engineer!*
+*You can now configure and start your race, if you hold 'r', you can now ask the race engineer questions about your car's state.*
 
