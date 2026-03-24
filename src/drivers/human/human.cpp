@@ -105,6 +105,8 @@ static int	firstTime = 0;
 
 static bool statsWritten = false;
 
+static bool hasLapStarted = false;
+
 #ifdef _WIN32
 /* should be present in mswindows */
 BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
@@ -133,12 +135,6 @@ static std::ofstream trackOut;
 
 static void printPerformanceReport()
 {
-    // Target values
-    static const double SEGMENT_TARGETS[9] = {3.3, 8.5, 7.3, 6.5, 8.1, 8.65, 12.75, 5.2, 10.45};
-    static const double TARGET_LAP_TIME  = 70.0;   // seconds
-    static const double TARGET_AVG_SPEED = 176.0;  // km/h
-    static const double WARN_PCT         = 10.0;   // % over target = BAD
-
     // ANSI colours
     const char* GREEN  = "\033[92m";
     const char* RED    = "\033[91m";
@@ -147,32 +143,12 @@ static void printPerformanceReport()
     const char* BOLD   = "\033[1m";
     const char* RESET  = "\033[0m";
 
-    auto rating = [&](double actual, double target, bool lowerIsBetter) -> const char* {
-        if (target == 0.0) return YELLOW;
-        double pct = ((actual - target) / target) * 100.0;
-        if (lowerIsBetter) {
-            if (pct <= 0)         return GREEN;
-            if (pct <= WARN_PCT)  return YELLOW;
-            return RED;
-        } else {
-            if (pct >= 0)         return GREEN;
-            if (pct >= -WARN_PCT) return YELLOW;
-            return RED;
-        }
-    };
-
-    auto symbol = [&](double actual, double target, bool lowerIsBetter) -> const char* {
-        if (target == 0.0) return "~";
-        double pct = ((actual - target) / target) * 100.0;
-        if (lowerIsBetter) {
-            if (pct <= 0)         return "GOOD ✓";
-            if (pct <= WARN_PCT)  return "OK   ~";
-            return "BAD  ✗";
-        } else {
-            if (pct >= 0)         return "GOOD ✓";
-            if (pct >= -WARN_PCT) return "OK   ~";
-            return "BAD  ✗";
-        }
+    // helper to determine color based on comparison to BEST
+    auto rating = [&](double actual, double best) -> const char* {
+        if (best <= 0) return YELLOW;
+        if (actual <= best) return GREEN;
+        if (actual <= best * 1.05) return YELLOW; // Within 5% of best is "OK"
+        return RED;
     };
 
     // ── Read segment_times.json ───────────────────────────────────────────────
@@ -182,6 +158,9 @@ static void printPerformanceReport()
 
     std::map<int, std::map<int, double>> segTimes;
     std::map<int, std::map<int, int>>    segCounts;
+    std::map<int, double> segmentBests; // Global best per segment for this session
+    double overallBestLapTime = 1e9;
+    int maxSegmentIdx = 0;
 
     std::ifstream segFile((dataDir + "/segment_times.json").c_str());
     if (segFile.is_open()) {
@@ -194,77 +173,76 @@ static void printPerformanceReport()
             double t = 0.0;
 
             size_t pos = line.find("\"lap\":");
-            if (pos != std::string::npos)
-                lap = std::stoi(line.substr(pos + 6));
-
+            if (pos != std::string::npos) lap = std::stoi(line.substr(pos + 6));
             pos = line.find("\"segment\":");
-            if (pos != std::string::npos)
-                seg = std::stoi(line.substr(pos + 10));
-
+            if (pos != std::string::npos) seg = std::stoi(line.substr(pos + 10));
             pos = line.find("\"time\":");
-            if (pos != std::string::npos)
-                t = std::stod(line.substr(pos + 7));
+            if (pos != std::string::npos) t = std::stod(line.substr(pos + 7));
 
             if (lap >= 0 && seg >= 0) {
-                segTimes[lap][seg]  += t;
+                segTimes[lap][seg] += t;
                 segCounts[lap][seg] += 1;
+                if (seg > maxSegmentIdx) maxSegmentIdx = seg;
             }
         }
         segFile.close();
     }
 
-    // ── Print report ──────────────────────────────────────────────────────────
-    printf("\n%s%s╔══════════════════════════════════════════════════╗%s\n", BOLD, CYAN, RESET);
-    printf("%s%s║        TORCS Player Performance Report           ║%s\n", BOLD, CYAN, RESET);
-    printf("%s%s╚══════════════════════════════════════════════════╝%s\n", BOLD, CYAN, RESET);
+    if (segTimes.empty()) {
+        printf("No performance data found.\n");
+        return;
+    }
 
-    double overallBestLap = 1e9;
-    int lapCount = segTimes.size();
+    // First pass: Calculate Best Times for each segment across all laps
+    for (auto const& [lap, segments] : segTimes) {
+        double lapTotal = 0.0;
+        for (auto const& [seg, time] : segments) {
+            double avg = time / segCounts[lap][seg];
+            lapTotal += avg;
+            if (segmentBests.find(seg) == segmentBests.end() || avg < segmentBests[seg]) {
+                segmentBests[seg] = avg;
+            }
+        }
+        if (lapTotal < overallBestLapTime) overallBestLapTime = lapTotal;
+    }
+
+    // ── Print report ──────────────────────────────────────────────────────────
+    const char* trackName = curTrack ? curTrack->internalname : "Unknown";
+    printf("\n%s%s╔══════════════════════════════════════════════════╗%s\n", BOLD, CYAN, RESET);
+    printf("%s%s║ %-48s ║%s\n", BOLD, CYAN, trackName, RESET);
+    printf("%s%s╚══════════════════════════════════════════════════╝%s\n", BOLD, CYAN, RESET);
 
     for (auto& lapEntry : segTimes) {
         int lap = lapEntry.first;
         printf("\n%s%s── Lap %d Segment Analysis ──%s\n", BOLD, CYAN, lap, RESET);
-        printf("  %-6s %8s %8s %8s %7s  %s\n", "Seg", "Time(s)", "Target", "Diff", "Diff%", "Rating");
+        printf("  %-6s %8s %8s %8s %8s\n", "Seg", "Time(s)", "SessBest", "Diff", "Rating");
         printf("  %s\n", "-------------------------------------------------------");
 
         double lapTotal = 0.0;
 
-        for (int seg = 0; seg < 9; seg++) {
-            double target = SEGMENT_TARGETS[seg];
-            if (segCounts[lap].count(seg) == 0) {
-                printf("  %-6d %8s %8.2f   %7s  %sNO DATA%s\n",
-                       seg + 1, "N/A", target, "---", YELLOW, RESET);
-                continue;
-            }
-            double avg  = segTimes[lap][seg] / segCounts[lap][seg];
-            lapTotal += avg;  // accumulate lap time from segments
-            double diff = avg - target;
-            double pct  = (target != 0.0) ? ((avg - target) / target * 100.0) : 0.0;
-            const char* col = rating(avg, target, true);
-            const char* sym = symbol(avg, target, true);
-            printf("  %-6d %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
-                   seg + 1, avg, target, diff, pct, col, sym, RESET);
+        // Iterate up to the highest segment found for this track
+        for (int seg = 0; seg <= maxSegmentIdx; seg++) {
+            if (segCounts[lap].count(seg) == 0) continue;
+
+            double avg = segTimes[lap][seg] / segCounts[lap][seg];
+            double best = segmentBests[seg];
+            lapTotal += avg;
+            double diff = avg - best;
+            const char* col = rating(avg, best);
+
+            printf("  %-6d %8.2f %8.2f %s%+8.2f%s  [%s%s%s]\n",
+                   seg + 1, avg, best, 
+                   (diff > 0 ? RED : GREEN), diff, RESET,
+                   col, (avg <= best ? "BEST" : (avg <= best * 1.05 ? " OK " : "SLOW")), RESET);
         }
 
-        // Print lap total
-        double lapDiff = lapTotal - TARGET_LAP_TIME;
-        double lapPct  = (TARGET_LAP_TIME != 0.0) ? (lapDiff / TARGET_LAP_TIME * 100.0) : 0.0;
-        const char* lapCol = rating(lapTotal, TARGET_LAP_TIME, true);
-        const char* lapSym = symbol(lapTotal, TARGET_LAP_TIME, true);
-        printf("  Lap total     : %8.2f %8.2f %+8.2f %+6.1f%%  %s%s%s\n",
-               lapTotal, TARGET_LAP_TIME, lapDiff, lapPct, lapCol, lapSym, RESET);
-
-        if (lapTotal < overallBestLap) overallBestLap = lapTotal;
+        printf("  %s\n", "-------------------------------------------------------");
+        printf("  %-15s %8.2f (Best Session Lap: %.2f)\n", "Lap Total:", lapTotal, overallBestLapTime);
     }
 
-    // ── Overall stats ─────────────────────────────────────────────────────────
-    printf("\n%s%s── Overall Stats ──%s\n", BOLD, CYAN, RESET);
-    printf("  Best lap      : %.2f s\n", overallBestLap);
-    printf("  Total laps    : %d\n", lapCount);
-
     printf("\n%s%s══════════════════════════════════════════════════%s\n", BOLD, CYAN, RESET);
-    printf("  Legend: %sGOOD ✓%s at/under target   %sOK ~%s within %.0f%%   %sBAD ✗%s over %.0f%% off\n",
-           GREEN, RESET, YELLOW, RESET, WARN_PCT, RED, RESET, WARN_PCT);
+    printf("  Legend: %sBEST%s (New/Matches Session Best)  %sOK%s (+5%%)  %sSLOW%s (>5%%)\n",
+           GREEN, RESET, YELLOW, RESET, RED, RESET);
     printf("%s%s══════════════════════════════════════════════════%s\n\n", BOLD, CYAN, RESET);
 }
 
@@ -318,6 +296,7 @@ if (speedOut.is_open()) {
 		firstTime = 0;
 	}
 }
+
 void logTrackPosition(tCarElt* car, tSituation *s) {
     static double lastPosWriteTime = 0;
 
@@ -382,9 +361,10 @@ void logSpeed(tCarElt* car, tSituation *s) {
     }
 }
 
+// ── Per-track macro segment functions ────────────────────────────────────────
 
-int getMacroSegment(int segId) {
-    if (segId < 40) return 0;
+int getMacroSegment_Corkscrew(int segId) {
+    if (segId < 40)  return 0;
     if (segId < 100) return 1;
     if (segId < 175) return 2;
     if (segId < 235) return 3;
@@ -392,9 +372,237 @@ int getMacroSegment(int segId) {
     if (segId < 390) return 5;
     if (segId < 500) return 6;
     if (segId < 540) return 7;
-	if (segId < 604) return 8;
+    if (segId < 604) return 8;
     return 9;
 }
+
+int getMacroSegment_CGSpeedway(int segId) {
+    if (segId < 81)  return 0;
+    if (segId < 191) return 1;
+    return 2;
+}
+
+int getMacroSegment_CGTrack2(int segId) {
+    if (segId < 171) return 0;
+    if (segId < 306) return 1;
+    return 2;
+}
+
+int getMacroSegment_CGTrack3(int segId) {
+    if (segId < 66)  return 0;
+    if (segId < 131) return 1;
+    if (segId < 251) return 2;
+    return 3;
+}
+
+int getMacroSegment_OlethrosRoad(int segId) {
+    if (segId < 131) return 0;
+    if (segId < 301) return 1;
+    if (segId < 486) return 2;
+    if (segId < 606) return 3;
+    return 4;
+}
+
+int getMacroSegment_Ruudskogen(int segId) {
+    if (segId < 201) return 0;
+    if (segId < 421) return 1;
+    if (segId < 571) return 2;
+    return 3;
+}
+
+int getMacroSegment_Spring(int segId) {
+    if (segId < 141)  return 0;
+    if (segId < 251)  return 1;
+    if (segId < 346)  return 2;
+    if (segId < 451)  return 3;
+    if (segId < 541)  return 4;
+    if (segId < 676)  return 5;
+    if (segId < 751)  return 6;
+    if (segId < 831)  return 7;
+    if (segId < 916)  return 8;
+    if (segId < 1016) return 9;
+    if (segId < 1151) return 10;
+    if (segId < 1271) return 11;
+    if (segId < 1431) return 12;
+    if (segId < 1581) return 13;
+    if (segId < 1921) return 14;
+    if (segId < 2141) return 15;
+    if (segId < 2471) return 16;
+    if (segId < 2741) return 17;
+    return 18;
+}
+
+int getMacroSegment_ETrack1(int segId) {
+    if (segId < 2)   return 0;
+    if (segId < 51)  return 1;
+    if (segId < 101) return 2;
+    if (segId < 141) return 3;
+    if (segId < 231) return 4;
+    if (segId < 261) return 5;
+    if (segId < 371) return 6;
+    if (segId < 401) return 7;
+    return 8;
+}
+
+int getMacroSegment_ETrack2(int segId) {
+    if (segId < 101)  return 0;
+    if (segId < 251)  return 1;
+    if (segId < 501)  return 2;
+    if (segId < 681)  return 3;
+    if (segId < 801)  return 4;
+    if (segId < 1001) return 5;
+    if (segId < 1081) return 6;
+    if (segId < 1201) return 7;
+    if (segId < 1301) return 8;
+    return 9;
+}
+
+int getMacroSegment_ETrack3(int segId) {
+    if (segId < 61)  return 0;
+    if (segId < 101) return 1;
+    if (segId < 201) return 2;
+    if (segId < 281) return 3;
+    if (segId < 401) return 4;
+    if (segId < 601) return 5;
+    if (segId < 701) return 6;
+    if (segId < 731) return 7;
+    return 8;
+}
+
+int getMacroSegment_ETrack4(int segId) {
+    if (segId < 41)  return 0;
+    if (segId < 151) return 1;
+    if (segId < 451) return 2;
+    if (segId < 501) return 3;
+    if (segId < 601) return 4;
+    if (segId < 701) return 5;
+    return 6;
+}
+
+int getMacroSegment_ETrack6(int segId) {
+    if (segId < 26)  return 0;
+    if (segId < 76)  return 1;
+    if (segId < 101) return 2;
+    if (segId < 151) return 3;
+    if (segId < 231) return 4;
+    if (segId < 291) return 5;
+    if (segId < 340) return 6;
+    if (segId < 381) return 7;
+    if (segId < 440) return 8;
+    return 9;
+}
+
+int getMacroSegment_ERoad(int segId) {
+    if (segId < 41)  return 0;
+    if (segId < 71)  return 1;
+    if (segId < 131) return 2;
+    if (segId < 181) return 3;
+    if (segId < 311) return 4;
+    if (segId < 341) return 5;
+    if (segId < 391) return 6;
+    return 7;
+}
+
+int getMacroSegment_Forza(int segId) {
+    if (segId < 291)  return 0;
+    if (segId < 401)  return 1;
+    if (segId < 601)  return 2;
+    if (segId < 651)  return 3;
+    if (segId < 701)  return 4;
+    if (segId < 741)  return 5;
+    if (segId < 951)  return 6;
+    if (segId < 1051) return 7;
+    if (segId < 1251) return 8;
+    if (segId < 1401) return 9;
+    return 10;
+}
+
+int getMacroSegment_Street1(int segId) {
+    if (segId < 91)  return 0;
+    if (segId < 178) return 1;
+    if (segId < 250) return 2;
+    return 3;
+}
+
+int getMacroSegment_Wheel1(int segId) {
+    if (segId < 127) return 0;
+    if (segId < 388) return 1;
+    return 2;
+}
+
+int getMacroSegment_Wheel2(int segId) {
+    if (segId < 116) return 0;
+    if (segId < 443) return 1;
+    if (segId < 522) return 2;
+    if (segId < 589) return 3;
+    if (segId < 644) return 4;
+    return 5;
+}
+
+int getMacroSegment_Aalborg(int segId) {
+    if (segId < 125) return 0;
+    if (segId < 175) return 1;
+    return 2;
+}
+
+int getMacroSegment_Alpine1(int segId) {
+    if (segId < 140) return 0;
+    if (segId < 501) return 1;
+    if (segId < 691) return 2;
+    if (segId < 927) return 3;
+    return 4;
+}
+
+int getMacroSegment_Alpine2(int segId) {
+    if (segId < 206) return 0;
+    if (segId < 374) return 1;
+    if (segId < 601) return 2;
+    return 3;
+}
+
+int getMacroSegment_Brondelehach(int segId) {
+    if (segId < 141) return 0;
+    if (segId < 301) return 1;
+    if (segId < 521) return 2;
+    if (segId < 701) return 3;
+    return 4;
+}
+
+// ── Dispatcher — routes to the correct track function via curTrack->internalname
+// NOTE: If any track returns 0 unexpectedly, add a debug print in initTrack to
+//       confirm the exact internalname string: printf("[DEBUG] Track: %s\n", track->internalname);
+int getMacroSegment(int segId) {
+    if (!curTrack) return 0;
+    const char* name = curTrack->internalname;
+
+    if      (strcmp(name, "corkscrew")        == 0) return getMacroSegment_Corkscrew(segId);
+    else if (strcmp(name, "g-speedway")        == 0) return getMacroSegment_CGSpeedway(segId);
+    else if (strcmp(name, "g-track-2")         == 0) return getMacroSegment_CGTrack2(segId);
+    else if (strcmp(name, "g-track-3")         == 0) return getMacroSegment_CGTrack3(segId);
+    else if (strcmp(name, "ole-road-1")   == 0) return getMacroSegment_OlethrosRoad(segId);
+    else if (strcmp(name, "ruudskogen")        == 0) return getMacroSegment_Ruudskogen(segId);
+    else if (strcmp(name, "spring")            == 0) return getMacroSegment_Spring(segId);
+    else if (strcmp(name, "e-track-1")          == 0) return getMacroSegment_ETrack1(segId);
+    else if (strcmp(name, "e-track-2")          == 0) return getMacroSegment_ETrack2(segId);
+    else if (strcmp(name, "e-track-3")          == 0) return getMacroSegment_ETrack3(segId);
+    else if (strcmp(name, "e-track-4")          == 0) return getMacroSegment_ETrack4(segId);
+    else if (strcmp(name, "e-track-6")          == 0) return getMacroSegment_ETrack6(segId);
+    else if (strcmp(name, "e-road")            == 0) return getMacroSegment_ERoad(segId);
+    else if (strcmp(name, "forza")             == 0) return getMacroSegment_Forza(segId);
+    else if (strcmp(name, "street-1")          == 0) return getMacroSegment_Street1(segId);
+    else if (strcmp(name, "wheel-1")           == 0) return getMacroSegment_Wheel1(segId);
+    else if (strcmp(name, "wheel-2")           == 0) return getMacroSegment_Wheel2(segId);
+    else if (strcmp(name, "aalborg")           == 0) return getMacroSegment_Aalborg(segId);
+    else if (strcmp(name, "alpine-1")          == 0) return getMacroSegment_Alpine1(segId);
+    else if (strcmp(name, "alpine-2")          == 0) return getMacroSegment_Alpine2(segId);
+    else if (strcmp(name, "brondehach")        == 0) return getMacroSegment_Brondelehach(segId);
+
+    // Unknown track — fallback: every segment ID maps to macro segment 0
+    printf("[getMacroSegment] WARNING: unknown track '%s', returning 0\n", name);
+    return 0;
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
 
 static int lastMacroSegment = -1;
 static double segmentStartTime = 0;
@@ -622,8 +830,6 @@ void logLiveCommentary(tCarElt* car, tSituation *s) {
         liveFile.close();
     }
 }
-
-
 void logLiveCoaching(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     if (s->currentTime - lastLiveWrite < 2.0) return;
@@ -823,6 +1029,8 @@ static void initTrack(int index, tTrack* track, void *carHandle, void **carParmH
 
 	curTrack = track;
 
+	printf("[DEBUG] Track internal name: %s\n", track->internalname); // Remove once all names confirmed
+
 	snprintf(sstring, BUFSIZE, "Robots/index/%d", index);
 	snprintf(buf, BUFSIZE, "%sdrivers/human/human.xml", GetLocalDir());
 	void *DrvInfo = GfParmReadFile(buf, GFPARM_RMODE_REREAD | GFPARM_RMODE_CREAT);
@@ -916,6 +1124,7 @@ static void clearDrivingData()
     }
 	printf("File Cleared.\n");
 }
+
 static void endrace(int index, tCarElt* car, tSituation *s)
 {
     if (!statsWritten) {
@@ -1103,6 +1312,12 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 	const int BUFSIZE = 1024;
 	char sstring[BUFSIZE];
 
+	if ((car->_trkPos.seg->id) > 0 && (car->_trkPos.seg->id) < 100)
+	{
+		hasLapStarted = true;
+	}
+
+	std::cout << (hasLapStarted);
 
 	static int firstTime = 1;
 
@@ -1552,18 +1767,22 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 			}
 		}
 	}
-	logTrackPosition(car, s); // Here is where the car Logs the driving data
-	logSegmentPosition(car, s);
-	logSpeed(car, s);
-	
-	
-	if (commentary)
-	{
+	if (hasLapStarted){
+		logTrackPosition(car, s); 
+		logSegmentPosition(car, s);
+		logSpeed(car, s);
 		logLiveCommentary(car, s);
-	}
-	if (coach)
-	{
 		logLiveCoaching(car, s);
+	}
+	
+
+		// Push to talk — hold R to record, release to send
+	static bool pttActive = false;
+
+	if (currentKey['r'] == GFUI_KEY_DOWN && !pttActive) {
+		pttActive = true;
+		printf("[RaceEngineer] PTT pressed — starting recording\n");
+		sendVoiceRequest("start");
 	}
 	if (engineer)
 	{
@@ -1856,4 +2075,3 @@ static int pitcmd(int index, tCarElt* car, tSituation *s)
 
 	return ROB_PIT_MENU; /* The player is able to modify the value by menu */
 }
-
