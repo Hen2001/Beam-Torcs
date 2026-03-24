@@ -365,7 +365,6 @@ def generate_free_commentary():
     return result.strip()
 
 
-<<<<<<< HEAD
 # ── Event prompts — each tells the model exactly what to say ─────────────────
 def prompt_off_track(sector, speed):
     return (
@@ -375,11 +374,9 @@ def prompt_off_track(sector, speed):
 def generate_commentary(data):
     """Generate live commentary based on the current telemetry data."""
     global last_corkscrew_time, last_lowspeed_time, last_place, last_overtake_time  # Fix 1: added last_place and last_overtake_time
-=======
 # ══════════════════════════════════════════════════════════════════════════════
 #  COMMENTARY
 # ══════════════════════════════════════════════════════════════════════════════
->>>>>>> e665df8 (Chnaged prompt layout for the comms - uses an event controller. Also added segment times for all other maps, changed the printout report to accomodate this and various other changes.)
 
 def generate_commentary(data):
     event = controller.get_event(data)
