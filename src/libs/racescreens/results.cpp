@@ -358,15 +358,22 @@ std::vector<std::string> wrapText(const char* text, int maxLineLength)
 //----------------------------
 static void rmGraniteAnalysis(void *prevHdle)
 {
-    // Build portable filepath using HOME environment variable
+    // Build filepath
     std::string filepathStr;
     const char* home = getenv("HOME");
     if (home) {
         filepathStr = std::string(home) + "/.torcs/DrivingData/granite_analysis.txt";
     } else {
-        filepathStr = "/tmp/granite_analysis.txt"; // fallback if HOME not set
+        filepathStr = "/tmp/granite_analysis.txt";
     }
     const char* filepath = filepathStr.c_str();
+
+    // Prevent spam clicks
+    static bool isRunning = false;
+    if (isRunning) {
+        return;
+    }
+    isRunning = true;
 
     void *analysisScr = GfuiScreenCreate();
     GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
@@ -389,9 +396,11 @@ static void rmGraniteAnalysis(void *prevHdle)
                          NULL, NULL, NULL);
 
         GfuiScreenActivate(analysisScr);
+        isRunning = false;
         return;
     }
 
+    // Loading message
     GfuiLabelCreate(analysisScr,
                     "Generating analysis... please wait",
                     GFUI_FONT_MEDIUM_C,
@@ -401,8 +410,20 @@ static void rmGraniteAnalysis(void *prevHdle)
 
     GfuiScreenActivate(analysisScr);
 
+    // 🧹 Remove old file (VERY IMPORTANT)
+    remove(filepath);
+
+    // 🚀 Run Python script in background
+    std::string cmd = "python3 " + 
+        std::string(TORCS_SOURCE_DIR) + 
+        "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
+
+    system(cmd.c_str());
+
+    // ⏳ Wait for file to appear
     struct stat st;
     int attempts = 0;
+
     while (attempts < 60) {
         if (stat(filepath, &st) == 0 && st.st_size > 0) {
             break;
@@ -411,8 +432,10 @@ static void rmGraniteAnalysis(void *prevHdle)
         attempts++;
     }
 
+    // 📄 Read result
     char analysisText[4096] = {0};
     FILE* f = fopen(filepath, "r");
+
     if (f) {
         size_t bytesRead = fread(analysisText, 1, sizeof(analysisText) - 1, f);
         analysisText[bytesRead] = '\0';
@@ -421,6 +444,7 @@ static void rmGraniteAnalysis(void *prevHdle)
         strcpy(analysisText, "Analysis could not be generated.");
     }
 
+    // 🔄 Rebuild screen with results
     GfuiScreenRelease(analysisScr);
     analysisScr = GfuiScreenCreate();
     GfuiScreenAddBgImg(analysisScr, "data/img/splash-result.png");
@@ -482,6 +506,9 @@ static void rmGraniteAnalysis(void *prevHdle)
                      NULL, NULL, NULL);
 
     GfuiScreenActivate(analysisScr);
+
+    // ✅ Allow running again
+    isRunning = false;
 }
 
 //-----------------------------

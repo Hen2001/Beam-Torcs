@@ -24,12 +24,39 @@ def print_header(text):
     print(f"\n{BOLD}{CYAN}── {text} ──{RESET}")
 
 # ── Load data ─────────────────────────────────────────────────────────────────
+# ── Load data safely ──────────────────────────────────────────────────────────
+import time
+
 if not os.path.exists(STATS_PATH):
     print(f"No end_statistics.json found at {STATS_PATH}, exiting.")
     sys.exit(1)
 
-with open(STATS_PATH, "r") as f:
-    stats = json.load(f)
+# Wait for file to finish writing
+last_size = -1
+stable_count = 0
+
+for _ in range(60):  # wait up to ~60 seconds
+    if os.path.exists(STATS_PATH):
+        size = os.path.getsize(STATS_PATH)
+
+        if size > 0:
+            if size == last_size:
+                stable_count += 1
+                if stable_count >= 2:
+                    break  # file is stable → safe to read
+            else:
+                stable_count = 0
+                last_size = size
+
+    time.sleep(1)
+
+# Now load safely
+try:
+    with open(STATS_PATH, "r") as f:
+        stats = json.load(f)
+except Exception as e:
+    print(f"Failed to load stats JSON: {e}")
+    sys.exit(1)
 
 # ── Build prompt ──────────────────────────────────────────────────────────────
 lap_times_str = ", ".join(

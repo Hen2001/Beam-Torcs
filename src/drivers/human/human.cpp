@@ -276,13 +276,7 @@ if (speedOut.is_open()) {
 	}
 	printPerformanceReport();
   
-	if (analysis)
-	{
-		std::string cmd = "sleep 2 && python3 " + 
-                  std::string(TORCS_SOURCE_DIR) + 
-                  "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
-		system(cmd.c_str());
-	}
+	
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
