@@ -684,9 +684,9 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
 static void endStatistics(tCarElt* car, tSituation *s)
 {
-    // Throttle: Only overwrite every 2.0 seconds to save CPU/Disk I/O
+    // Throttle: Only overwrite every 0.1 seconds to save CPU/Disk I/O
     static double lastWriteTime = 0;
-    if (s->currentTime - lastWriteTime < 2.0) return; 
+    if (s->currentTime - lastWriteTime < 0.1) return; 
     lastWriteTime = s->currentTime;
 
     const char* homeDir = getenv("HOME");
@@ -696,11 +696,18 @@ static void endStatistics(tCarElt* car, tSituation *s)
     mkdir(dataDir.c_str(), 0755);
     std::string fullPath = dataDir + "/end_statistics.json";
 
-    // Use current session data even if no full laps are done yet
+    // Compute avg and best from segment-derived lapTimes[]
     double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
     double avgLapTime = 0.0;
+    double bestLapTime = 0.0;
+
     if (lapCount > 0) {
-        for (int i = 0; i < lapCount; i++) avgLapTime += lapTimes[i];
+        bestLapTime = lapTimes[0];
+        for (int i = 0; i < lapCount; i++) {
+            avgLapTime += lapTimes[i];
+            if (lapTimes[i] < bestLapTime)
+                bestLapTime = lapTimes[i];
+        }
         avgLapTime /= lapCount;
     }
 
@@ -711,14 +718,14 @@ static void endStatistics(tCarElt* car, tSituation *s)
     }
 
     outFile << "{"
-        << "\"avg_speed_kmh\":"  << (avgSpeed * 3.6)       << ","
-        << "\"avg_lap_time\":"   << avgLapTime             << ","
-        << "\"best_lap_time\":"  << car->race.bestLapTime  << "," // Using the race-specific best lap
+        << "\"avg_speed_kmh\":"  << (avgSpeed * 3.6)  << ","
+        << "\"avg_lap_time\":"   << avgLapTime         << ","
+        << "\"best_lap_time\":"  << bestLapTime        << ","
         << "\"laps_completed\":" << (lapCount > 0 ? lapCount : car->_laps) << ","
-        << "\"current_lap\":"    << car->_laps             << ","
-        << "\"finish_pos\":"     << car->_pos              << ","
-        << "\"damage\":"         << car->_dammage          << ","
-        << "\"time_penalty\":"   << car->_penaltyTime      << ","
+        << "\"current_lap\":"    << car->_laps         << ","
+        << "\"finish_pos\":"     << car->_pos          << ","
+        << "\"damage\":"         << car->_dammage      << ","
+        << "\"time_penalty\":"   << car->_penaltyTime  << ","
         << "\"lap_times\":[";
 
     for (int i = 0; i < lapCount; i++) {
