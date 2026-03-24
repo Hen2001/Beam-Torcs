@@ -1317,7 +1317,6 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		hasLapStarted = true;
 	}
 
-	std::cout << (hasLapStarted);
 
 	static int firstTime = 1;
 
@@ -1773,21 +1772,10 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		logSpeed(car, s);
 		logLiveCommentary(car, s);
 		logLiveCoaching(car, s);
+		logEngineerData(car, s);
 	}
 	
 
-		// Push to talk — hold R to record, release to send
-	static bool pttActive = false;
-
-	if (currentKey['r'] == GFUI_KEY_DOWN && !pttActive) {
-		pttActive = true;
-		printf("[RaceEngineer] PTT pressed — starting recording\n");
-		sendVoiceRequest("start");
-	}
-	if (engineer)
-	{
-		logEngineerData(car, s);
-	}
 	
 
 #ifndef WIN32
