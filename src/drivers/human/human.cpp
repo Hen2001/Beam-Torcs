@@ -276,13 +276,7 @@ if (speedOut.is_open()) {
 	}
 	printPerformanceReport();
   
-	if (analysis)
-	{
-		std::string cmd = "sleep 2 && python3 " + 
-                  std::string(TORCS_SOURCE_DIR) + 
-                  "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
-		system(cmd.c_str());
-	}
+	
 	int	idx = index - 1;
 
 	free (HCtx[idx]);
@@ -690,7 +684,10 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
 static void endStatistics(tCarElt* car, tSituation *s)
 {
-
+    // Throttle: Only overwrite every 2.0 seconds to save CPU/Disk I/O
+    static double lastWriteTime = 0;
+    if (s->currentTime - lastWriteTime < 2.0) return; 
+    lastWriteTime = s->currentTime;
 
     const char* homeDir = getenv("HOME");
     if (!homeDir) return;
@@ -699,29 +696,29 @@ static void endStatistics(tCarElt* car, tSituation *s)
     mkdir(dataDir.c_str(), 0755);
     std::string fullPath = dataDir + "/end_statistics.json";
 
+    // Use current session data even if no full laps are done yet
     double avgSpeed = (speedSamples > 0) ? (totalSpeed / speedSamples) : 0.0;
-
-    // Compute avgLapTime from actual recorded lap times
     double avgLapTime = 0.0;
     if (lapCount > 0) {
         for (int i = 0; i < lapCount; i++) avgLapTime += lapTimes[i];
         avgLapTime /= lapCount;
     }
 
+    // std::ios::trunc ensures the file is wiped and rewritten from scratch
     std::ofstream outFile(fullPath.c_str(), std::ios::out | std::ios::trunc);
     if (!outFile.is_open()) {
-        printf("ERROR: Could not open end_statistics.json for writing\n");
         return;
     }
 
     outFile << "{"
-        << "\"avg_speed_kmh\":"  << avgSpeed * 3.6        << ","
-        << "\"avg_lap_time\":"   << avgLapTime            << ","
-        << "\"best_lap_time\":"  << car->_deltaBestLapTime << ","
-        << "\"laps_completed\":" << lapCount              << ","
-        << "\"finish_pos\":"     << car->_pos             << ","
-        << "\"damage\":"         << car->_dammage         << ","
-		<< "\"time_penalty\":"	 << car->_penaltyTime	  << ","
+        << "\"avg_speed_kmh\":"  << (avgSpeed * 3.6)       << ","
+        << "\"avg_lap_time\":"   << avgLapTime             << ","
+        << "\"best_lap_time\":"  << car->race.bestLapTime  << "," // Using the race-specific best lap
+        << "\"laps_completed\":" << (lapCount > 0 ? lapCount : car->_laps) << ","
+        << "\"current_lap\":"    << car->_laps             << ","
+        << "\"finish_pos\":"     << car->_pos              << ","
+        << "\"damage\":"         << car->_dammage          << ","
+        << "\"time_penalty\":"   << car->_penaltyTime      << ","
         << "\"lap_times\":[";
 
     for (int i = 0; i < lapCount; i++) {
@@ -731,7 +728,6 @@ static void endStatistics(tCarElt* car, tSituation *s)
 
     outFile << "]}" << std::endl;
     outFile.close();
-    printf("Stats Recorded (%d laps).\n", lapCount);
 }
 
 void logEngineerData(tCarElt* car, tSituation *s)
@@ -1127,6 +1123,8 @@ static void clearDrivingData()
 
 static void endrace(int index, tCarElt* car, tSituation *s)
 {
+	endStatistics(car, s);
+
     if (!statsWritten) {
         // Flush the last open segment into lapTimes if not already done
         if (lastMacroSegment != -1 && lastLap != -1) {
@@ -1147,32 +1145,7 @@ void newrace(int index, tCarElt* car, tSituation *s)
 	lastLap          = -1;
     lastMacroSegment = -1;
     segmentStartTime = 0.0;
-    memset(inMemSegTimes, 0, sizeof(inMemSegTimes));
-
-	// if (coach) {
-    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveCoach.py &");
-	// 	std::string cmd = "python3 " + 
-    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveCoach.py &";
-	// 	system(cmd.c_str());
-    // }
-    // if (commentary) {
-    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
-	// 		std::string cmd = "python3 " + 
-    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
-	// 	system(cmd.c_str());
-    // }
-	
-	// if (engineer) {
-    //     // system("python3 /home/Jdog/CodeSpaces/Beam-Torcs/src/Granite/liveComs.py &");
-	// 	// Wake WSLg PulseAudio before launching script
-    // 	system("PULSE_SERVER=unix:/mnt/wslg/PulseServer pactl info > /dev/null 2>&1");
-    
-	// 		std::string cmd = "python3 " + 
-    //               std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
-	// 	system(cmd.c_str());
-    // }
-
-	
+    memset(inMemSegTimes, 0, sizeof(inMemSegTimes));	
 	prevRemainingLaps = -1;
 	memset(lapTimes, 0, sizeof(lapTimes));
 	lapCount = 0;
@@ -1773,6 +1746,8 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		logLiveCommentary(car, s);
 		logLiveCoaching(car, s);
 		logEngineerData(car, s);
+		endStatistics(car, s);
+
 	}
 	
 
@@ -1794,7 +1769,7 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 #endif
 #endif
 
-if (car->_laps != HCtx[idx]->lap && car->_laps > 1) {
+if (car->_laps != HCtx[idx]->lap && car->_laps > 0) {
 
         endStatistics(car, s);
         // If this lap completion also consumed the last remaining lap, mark stats as written

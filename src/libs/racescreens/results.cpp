@@ -358,6 +358,14 @@ std::vector<std::string> wrapText(const char* text, int maxLineLength)
 //----------------------------
 static void rmGraniteAnalysis(void *prevHdle)
 {
+	if (analysis)
+	{
+		std::string cmd = "sleep 2 && python3 " + 
+                  std::string(TORCS_SOURCE_DIR) + 
+                  "/src/Granite/analyse.py 2>> ~/.torcs/DrivingData/granite_error.log &";
+		system(cmd.c_str());
+	}
+	
     // Build portable filepath using HOME environment variable
     std::string filepathStr;
     const char* home = getenv("HOME");

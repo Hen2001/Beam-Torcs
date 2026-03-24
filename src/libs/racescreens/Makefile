@@ -32,4 +32,7 @@ src_PKGDIR	= ${PACKAGE}-${VERSION}/$(subst ${TORCS_BASE},,$(shell pwd))
 
 include ${MAKE_DEFAULT}
 
+TORCS_ROOT := $(shell while [ ! -f configure.ac ] && [ ! -d .git ] && [ `pwd` != "/" ]; do cd ..; done; pwd)
+CXXFLAGS += -DTORCS_SOURCE_DIR=\"$(TORCS_ROOT)\"
+
 
