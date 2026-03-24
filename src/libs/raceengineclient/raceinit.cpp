@@ -526,27 +526,23 @@ void ReLoadAIFeatures(void)
 	if (engineer)
 	{
 		// Launch engineer
-		std::string cmd = std::string("python3 ") + home +
-						"/Beam-Torcs/src/Granite/race_engineer.py &";
-		
-		// Using (void)system to suppress the unused-result warning
-		(void)system(cmd.c_str());
+	 	std::string cmd = "python3 " + 
+                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/race_engineer.py &";
+	 	system(cmd.c_str());
 	}
 	if (commentary)
 	{
 		// Launch commentary
-		std::string cmd = std::string("python3 ") + home +
-						"/Beam-Torcs/src/Granite/liveComs.py &";
-		
-		(void)system(cmd.c_str());
+	 	std::string cmd = "python3 " + 
+                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveComs.py &";
+	 	system(cmd.c_str());
 	}
 	if (coach)
 	{
 		// Launch coach
-		std::string cmd = std::string("python3 ") + home +
-						"/Beam-Torcs/src/Granite/liveCoach.py &";
-		
-		(void)system(cmd.c_str());
+	 	std::string cmd = "python3 " + 
+                   std::string(TORCS_SOURCE_DIR) + "/src/Granite/liveCoach.py &";
+	 	system(cmd.c_str());
 	}
 
     char line[256];
