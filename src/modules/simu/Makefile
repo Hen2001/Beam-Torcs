@@ -21,7 +21,7 @@ SUBDIRS		= simuv2
 
 DATASUBDIRS	= $(SUBDIRS)
 
-EXPINCDIRS	= $(shell find * -maxdepth 0 -type d -print | grep -v CVS)
+EXPINCDIRS      = simuv2
 
 PKGSUBDIRS	= $(SUBDIRS)
 

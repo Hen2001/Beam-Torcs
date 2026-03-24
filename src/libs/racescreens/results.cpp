@@ -39,6 +39,7 @@
 #include <cstring>
 #include <vector>
 #include <string>
+#include "AiFeatures.h"
 std::vector<std::string> wrapText(const char* text, int maxLineLength);
 std::string insertKeywordBreaks(const std::string& input);
 
@@ -646,35 +647,36 @@ static void rmRaceResults(void *prevHdle, tRmInfo *info, int start)
 				NULL, (tfuiCallback)NULL, (tfuiCallback)NULL);
 		GfuiAddSKey(rmScrHdle, GLUT_KEY_PAGE_UP,   "Previous Results", (void*)&RmPrevRace, rmChgRaceScreen, NULL);
 	}
-GfuiButtonCreate(rmScrHdle,
-                 "View Granite Analysis",
-                 GFUI_FONT_MEDIUM_C,
-                 320,
-                 60,
-                 250,
-                 GFUI_ALIGN_HC_VB,
-                 0,                     // shortcut
-                 rmScrHdle,             // pass current screen
-                 rmGraniteAnalysis,     // callback
-                 NULL,
-                 NULL,
-                 NULL);
+if (analysis) {
+    GfuiButtonCreate(rmScrHdle,
+                     "View Granite Analysis",
+                     GFUI_FONT_LARGE_C,   
+                     480,
+                     40,
+                     225,                 
+                     GFUI_ALIGN_HC_VB,
+                     0,
+                     rmScrHdle,
+                     rmGraniteAnalysis,
+                     NULL,
+                     NULL,
+                     NULL);
+}
 
 
 	GfuiButtonCreate(rmScrHdle,
-			"Continue",
-			GFUI_FONT_LARGE,
-			/* 210, */
-			320,
-			40,
-			150,
-			GFUI_ALIGN_HC_VB,
-			0,
-			prevHdle,
-			GfuiScreenReplace,
-			NULL,
-			(tfuiCallback)NULL,
-			(tfuiCallback)NULL);
+        "Continue",
+        GFUI_FONT_LARGE,
+        analysis ? 160 : 320,
+        40,
+        150,
+        GFUI_ALIGN_HC_VB,
+        0,
+        prevHdle,
+        GfuiScreenReplace,
+        NULL,
+        (tfuiCallback)NULL,
+        (tfuiCallback)NULL);
 
 	if (i < nbCars) {
 		RmNextRace.prevHdle = prevHdle;
