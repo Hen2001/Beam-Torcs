@@ -48,7 +48,7 @@ Race Statistics:
 - Damage taken: {stats.get('damage', 0)}
 - Finish position: {stats.get('finish_pos', 'N/A')}
 
-Give 4-5 sentences of direct coaching feedback covering: consistency, speed, damage/incidents, and one specific thing to focus on next session.
+Give direct feedback based on these stats. Outline targets speed that were or weren't met, and refer to the above statistics throughout. 
 """
 
 # ── Load Granite ──────────────────────────────────────────────────────────────
