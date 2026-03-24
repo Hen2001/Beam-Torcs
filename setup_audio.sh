@@ -41,7 +41,7 @@ echo "      ✓ System packages installed"
 
 # ── Python dependencies ───────────────────────────────────────────────────────
 echo "[3/5] Installing Python packages..."
-pip install --quiet pyaudio pynput openai-whisper torch transformers protobuf -
+pip install --quiet pyaudio pynput openai-whisper torch transformers protobuf
 echo "      ✓ Python packages installed"
 
 # ── Configure festival to use PulseAudio ─────────────────────────────────────
