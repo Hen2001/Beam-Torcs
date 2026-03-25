@@ -547,57 +547,67 @@ void ReLoadAIFeatures(void)
 
     char line[256];
     int waited = 0;
-    while (waited < 120)
-    {
-        sleep(1);
-        waited++;
+// 1. Initialize a variable to track the last displayed message
+std::string lastMsg = "";
 
-        FILE *f = fopen(logPath.c_str(), "r");
-        if (!f)
-        {
-            RmLoadingScreenSetText("Loading Granite...");
-            continue;
-        }
+	while (waited < 120)
+	{
+		sleep(1);
+		waited++;
 
-        // Read the file to get the most recent progress line
-        bool foundProgress = false;
-        while (fgets(line, sizeof(line), f))
-        {
-            // Check if loading is complete
-            if (strstr(line, "100%") != NULL)
-            {
-                RmLoadingScreenSetText("AI Engineer ready!");
-                fclose(f);
-                sleep(1);
-                return;
-            }
+		FILE *f = fopen(logPath.c_str(), "r");
+		if (!f)
+		{
+			// 2. Use a helper lambda or check to prevent redundant updates
+			if (lastMsg != "Loading Granite...") {
+				RmLoadingScreenSetText("Loading Granite...");
+				lastMsg = "Loading Granite...";
+			}
+			continue;
+		}
 
-            // Extract percentage
-            const char *pctMatch = strstr(line, "Loading weights:");
-            if (pctMatch)
-            {
-                int percent = 0;
-                const char *numStart = pctMatch + 16;
-                while (*numStart == ' ') numStart++;
-                
-                if (sscanf(numStart, "%d%%", &percent) == 1) {
-                    char msg[64];
-                    snprintf(msg, sizeof(msg), "Loading Granite: %d%%", percent);
-                    RmLoadingScreenSetText(msg);
-                    foundProgress = true;
-                }
-            }
-        }
+		bool foundProgress = false;
+		while (fgets(line, sizeof(line), f))
+		{
+			if (strstr(line, "100%") != NULL)
+			{
+				RmLoadingScreenSetText("AI Engineer ready!");
+				fclose(f);
+				sleep(1);
+				return;
+			}
 
-        if (!foundProgress)
-        {
-            RmLoadingScreenSetText("Loading AI features...");
-        }
+			const char *pctMatch = strstr(line, "Loading weights:");
+			if (pctMatch)
+			{
+				int percent = 0;
+				const char *numStart = pctMatch + 16;
+				while (*numStart == ' ') numStart++;
+				
+				if (sscanf(numStart, "%d%%", &percent) == 1) {
+					char msg[64];
+					snprintf(msg, sizeof(msg), "Loading Granite: %d%%", percent);
+					
+					// 3. Only update if the percentage actually changed
+					if (lastMsg != msg) {
+						RmLoadingScreenSetText(msg);
+						lastMsg = msg;
+					}
+					foundProgress = true;
+				}
+			}
+		}
 
-        fclose(f);
-    }
+		if (!foundProgress)
+		{
+			if (lastMsg != "Loading AI features...") {
+				RmLoadingScreenSetText("Loading AI features...");
+				lastMsg = "Loading AI features...";
+			}
+		}
 
-    RmLoadingScreenSetText("Failed to load AI features in time.");
+		fclose(f);
+	}
 }
 
 /** Initialize the cars for a race.
