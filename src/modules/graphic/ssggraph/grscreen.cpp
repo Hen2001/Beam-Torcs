@@ -69,17 +69,284 @@ static const double WORDS_PER_SEC = 0.12;
 int telemetryHudEnabled = 1;   // default ON
 
 // --- Segment timing state ---
-static const char* SEGMENT_NAMES[10] = {
-    "First Straight",        // 0: seg < 40
-    "Hairpin",               // 1: seg < 100
-    "Corner 2",              // 2: seg < 175
-    "Corner 3",              // 3: seg < 235
-    "Long Left",             // 4: seg < 310
-    "Back Straight",         // 5: seg < 390
-    "The Corkscrew",         // 6: seg < 500
-    "Kink",                  // 7: seg < 540
-    "Final Straight",        // 8: seg < 605
+// ── Per-track segment definitions ────────────────────────────────────────────
+struct TrackSegDef {
+    int        maxId;
+    const char* name;
 };
+
+struct TrackProfile {
+    const char*        trackName;   // matched against grTrack->name or similar
+    TrackSegDef        segs[20];
+    int                count;
+};
+
+static const TrackProfile TRACK_PROFILES[] = {
+    {
+        "corkscrew",
+        {
+            { 40,  "First Straight" },
+            { 100, "Hairpin"        },
+            { 175, "Corner 2"       },
+            { 235, "Corner 3"       },
+            { 310, "Long Left"      },
+            { 390, "Back Straight"  },
+            { 500, "The Corkscrew"  },
+            { 540, "Kink"           },
+            { 605, "Final Straight" },
+           
+        }, 9
+    },
+    {
+        "g-speedway",
+        {
+            { 81,  "Straight"  },
+            { 191, "Infield"   },
+            
+        }, 2
+    },
+    {
+        "g-track-2",
+        {
+            { 171, "Sector 1" },
+            { 306, "Sector 2" },
+            
+        }, 2
+    },
+    {
+        "g-track-3",
+        {
+            { 66,  "Sector 1" },
+            { 131, "Sector 2" },
+            { 251, "Sector 3" },
+            
+        }, 3
+    },
+    {
+        "ole-road-1",
+        {
+            { 131, "Sector 1" },
+            { 301, "Sector 2" },
+            { 486, "Sector 3" },
+            { 606, "Sector 4" },
+            
+        }, 4
+    },
+    {
+        "ruudskogen",
+        {
+            { 201, "Sector 1" },
+            { 421, "Sector 2" },
+            { 571, "Sector 3" },
+            
+        }, 3
+    },
+    {
+        "spring",
+        {
+            { 141,  "Sector 1"  },
+            { 251,  "Sector 2"  },
+            { 346,  "Sector 3"  },
+            { 451,  "Sector 4"  },
+            { 541,  "Sector 5"  },
+            { 676,  "Sector 6"  },
+            { 751,  "Sector 7"  },
+            { 831,  "Sector 8"  },
+            { 916,  "Sector 9"  },
+            { 1016, "Sector 10" },
+            { 1151, "Sector 11" },
+            { 1271, "Sector 12" },
+            { 1431, "Sector 13" },
+            { 1581, "Sector 14" },
+            { 1921, "Sector 15" },
+            { 2141, "Sector 16" },
+            { 2471, "Sector 17" },
+            { 2741, "Sector 18" },
+            
+        }, 18
+    },
+    {
+        "e-track-1",
+        {
+            { 2,   "Sector 1" },
+            { 51,  "Sector 2" },
+            { 101, "Sector 3" },
+            { 141, "Sector 4" },
+            { 231, "Sector 5" },
+            { 261, "Sector 6" },
+            { 371, "Sector 7" },
+            { 401, "Sector 8" },
+            
+        }, 8
+    },
+    {
+        "e-track-2",
+        {
+            { 101,  "Sector 1" },
+            { 251,  "Sector 2" },
+            { 501,  "Sector 3" },
+            { 681,  "Sector 4" },
+            { 801,  "Sector 5" },
+            { 1001, "Sector 6" },
+            { 1081, "Sector 7" },
+            { 1201, "Sector 8" },
+            { 1301, "Sector 9" },
+            
+        }, 9
+    },
+    {
+        "e-track-3",
+        {
+            { 61,  "Sector 1" },
+            { 101, "Sector 2" },
+            { 201, "Sector 3" },
+            { 281, "Sector 4" },
+            { 401, "Sector 5" },
+            { 601, "Sector 6" },
+            { 701, "Sector 7" },
+            { 731, "Sector 8" },
+            
+        }, 8
+    },
+    {
+        "e-track-4",
+        {
+            { 41,  "Sector 1" },
+            { 151, "Sector 2" },
+            { 451, "Sector 3" },
+            { 501, "Sector 4" },
+            { 601, "Sector 5" },
+            { 701, "Sector 6" },
+            
+        }, 6
+    },
+    {
+        "e-track-6",
+        {
+            { 26,  "Sector 1" },
+            { 76,  "Sector 2" },
+            { 101, "Sector 3" },
+            { 151, "Sector 4" },
+            { 231, "Sector 5" },
+            { 291, "Sector 6" },
+            { 340, "Sector 7" },
+            { 381, "Sector 8" },
+            { 440, "Sector 9" },
+            
+        }, 9
+    },
+    {
+        "e-road",
+        {
+            { 41,  "Sector 1" },
+            { 71,  "Sector 2" },
+            { 131, "Sector 3" },
+            { 181, "Sector 4" },
+            { 311, "Sector 5" },
+            { 341, "Sector 6" },
+            { 391, "Sector 7" },
+            
+        }, 7
+    },
+    {
+        "forza",
+        {
+            { 291,  "Sector 1"  },
+            { 401,  "Sector 2"  },
+            { 601,  "Sector 3"  },
+            { 651,  "Sector 4"  },
+            { 701,  "Sector 5"  },
+            { 741,  "Sector 6"  },
+            { 951,  "Sector 7"  },
+            { 1051, "Sector 8"  },
+            { 1251, "Sector 9"  },
+            { 1401, "Sector 10" },
+        }, 10
+    },
+    {
+        "street-1",
+        {
+            { 91,  "Sector 1" },
+            { 178, "Sector 2" },
+            { 250, "Sector 3" },
+            
+        }, 3
+    },
+    {
+        "wheel-1",
+        {
+            { 127, "Sector 1" },
+            { 388, "Sector 2" },
+            
+        }, 2
+    },
+    {
+        "wheel-2",
+        {
+            { 116, "Sector 1" },
+            { 443, "Sector 2" },
+            { 522, "Sector 3" },
+            { 589, "Sector 4" },
+            { 644, "Sector 5" },
+            
+        }, 5
+    },
+    {
+        "aalborg",
+        {
+            { 125, "Sector 1" },
+            { 175, "Sector 2" },
+            
+        }, 2
+    },
+    {
+        "alpine-1",
+        {
+            { 140, "Sector 1" },
+            { 501, "Sector 2" },
+            { 691, "Sector 3" },
+            { 927, "Sector 4" },
+           
+        }, 4
+    },
+    {
+        "alpine-2",
+        {
+            { 206, "Sector 1" },
+            { 374, "Sector 2" },
+            { 601, "Sector 3" },
+            
+        }, 3
+    },
+    {
+        "brondehach",
+        {
+            { 141, "Sector 1" },
+            { 301, "Sector 2" },
+            { 521, "Sector 3" },
+            { 701, "Sector 4" },
+            
+        }, 4
+    },
+};
+
+static const TrackProfile* getTrackProfile() {
+    if (!grTrack || !grTrack->internalname) return &TRACK_PROFILES[0];
+    for (const auto& p : TRACK_PROFILES) {
+        if (strcmp(grTrack->internalname, p.trackName) == 0)
+            return &p;
+    }
+    printf("[getTrackProfile] WARNING: unknown track '%s'\n", grTrack->internalname);
+    return &TRACK_PROFILES[0];
+}
+
+static int getMacroSegment(int segId) {
+    const TrackProfile* p = getTrackProfile();
+    for (int i = 0; i < p->count; i++) {
+        if (segId < p->segs[i].maxId) return i;
+    }
+    return p->count - 1;
+}
 
 static int    seg_lastMacro     = -1;
 static int    seg_lastLap       = -1;
@@ -88,9 +355,9 @@ static int    seg_lastFinished  = -1;
 static double seg_lastTime      = 0.0;
 
 // Per-segment time for the previous lap (index = segment number)
-static double seg_prevLapTimes[10] = {0.0};
+static double seg_prevLapTimes[20] = {0.0};
 // Per-segment time being accumulated for the current lap
-static double seg_currentLapTimes[10] = {0.0};
+static double seg_currentLapTimes[20] = {0.0};
 
 
 
@@ -367,24 +634,12 @@ void setTelemetryHud(int enabled)
     GfParmWriteFile(NULL, grHandle, "Graph");
 }
 
-static int getMacroSegment(int segId) {
-    if (segId < 40)  return 0;
-    if (segId < 100) return 1;
-    if (segId < 175) return 2;
-    if (segId < 235) return 3;
-    if (segId < 310) return 4;
-    if (segId < 390) return 5;
-    if (segId < 500) return 6;
-    if (segId < 540) return 7;
-    if (segId < 605) return 8;
-    return 9;
-}
 
 void updateTelemetryMessage(tCarElt* car, tSituation* s)
 {
     char line1[128];
     char line2[128];
-
+	
     int segId  = car->_trkPos.seg->id;
     int macro  = getMacroSegment(segId);
     int lap    = car->_laps;
@@ -416,7 +671,7 @@ void updateTelemetryMessage(tCarElt* car, tSituation* s)
     }
 
     double elapsed = now - seg_startTime;
-    const char* segName = SEGMENT_NAMES[macro];
+    const char* segName = getTrackProfile()->segs[macro].name;
 
     // Line 1: current segment and live elapsed time
     snprintf(line1, sizeof(line1), "%s | %.2fs", segName, elapsed);
@@ -428,10 +683,10 @@ void updateTelemetryMessage(tCarElt* car, tSituation* s)
             double delta = seg_lastTime - prev;
             const char* sign = (delta <= 0.0) ? "" : "+";
             snprintf(line2, sizeof(line2), "Prev: %s %.2fs (%s%.2fs)",
-                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime, sign, delta);
+                     getTrackProfile()->segs[seg_lastFinished].name, seg_lastTime, sign, delta);
         } else {
             snprintf(line2, sizeof(line2), "Prev: %s %.2fs (no ref)",
-                     SEGMENT_NAMES[seg_lastFinished], seg_lastTime);
+                     getTrackProfile()->segs[seg_lastFinished].name, seg_lastTime);
         }
     } else {
         snprintf(line2, sizeof(line2), "Waiting for first split...");
