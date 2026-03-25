@@ -56,6 +56,9 @@ def get_sector(seg_id: int, track_name: str) -> int:
 
 # ── Hardcoded Commentary Lines ────────────────────────────────────────────────
 LINES = {
+    "BATTLE": [
+        ""
+    ]
     "OFF_TRACK": [
         "Car off track in sector {sec} — driver fighting to recover.",
         "Running wide in sector {sec} at {spd} km/h, losing time.",
@@ -157,8 +160,7 @@ def granite_complete(prefix: str, temperature: float = 0.55) -> str:
             out = model.generate(
                 **inputs,
                 max_new_tokens=7,
-                do_sample=True,
-                temperature=temperature,
+                do_sample=False,
                 repetition_penalty=1.4
             )
 
@@ -220,7 +222,7 @@ def granite_freeform(spd: int, sec: int, pos: int, temperature: float = 0.6) -> 
         res = res.split(".")[0].split("\n")[0].strip()
         res = res.replace('"', '').replace("'", "").strip()
 
-        return res if validate_granite(res, spd, sec) else ""
+        return res
 
     except Exception:
         traceback.print_exc()

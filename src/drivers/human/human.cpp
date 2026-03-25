@@ -117,7 +117,7 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 #endif
 
 
-
+#include <vector>
 #include <fstream> // Required for file writing
 #include <iomanip>
 #include <sstream>
@@ -133,6 +133,19 @@ BOOL WINAPI DllEntryPoint (HINSTANCE hDLL, DWORD dwReason, LPVOID Reserved)
 
 static std::ofstream speedOut;
 static std::ofstream trackOut;
+
+std::vector<tCarElt*> getOpponents(tCarElt* car, tSituation* s)
+{
+    std::vector<tCarElt*> opponents;
+
+    for (int i = 0; i < s->_ncars; i++) {
+        tCarElt* other = s->cars[i];
+        if (other == car) continue;  // skip self
+        opponents.push_back(other);
+    }
+
+    return opponents;
+}
 
 static void printPerformanceReport()
 {
@@ -857,26 +870,42 @@ void logEngineerData(tCarElt* car, tSituation *s)
 
 void logLiveCommentary(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
-    // Log every 2 seconds to give the AI time to think
     if (s->currentTime - lastLiveWrite < 2.0) return;
     lastLiveWrite = s->currentTime;
 
     std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_data.json";
     std::ofstream liveFile(path.c_str(), std::ios::out | std::ios::trunc);
 
-    if (liveFile.is_open()) {
-        liveFile << "{"
-                 << "\"speed\":" << (car->_speed_x * 3.6) << ","
-                 << "\"gear\":" << car->_gear << ","
-                 << "\"distToStart\":" << car->_trkPos.toStart << ","
-                 << "\"damage\":" << car->_dammage << ","
-                 << "\"trackPos\":" << car->_trkPos.toMiddle << ","
-				 << "\"place\":" << car->_pos << ","
-				 << "\"Segment\":" << car->_trkPos.seg->id  << ""
-                 << "}";
-        liveFile.close();
-    }
+    if (!liveFile.is_open()) return;
+
+    // Get opponents
+    std::vector<tCarElt*> opponents = getOpponents(car, s);
+
+    liveFile << "{"
+             << "\"speed\":" << (car->_speed_x * 3.6) << ","
+             << "\"gear\":" << car->_gear << ","
+             << "\"distToStart\":" << car->_trkPos.toStart << ","
+             << "\"damage\":" << car->_dammage << ","
+             << "\"trackPos\":" << car->_trkPos.toMiddle << ","
+             << "\"place\":" << car->_pos << ","
+             << "\"Segment\":" << car->_trkPos.seg->id << ","
+             << "\"opponents\":[";
+
+    for (size_t i = 0; i < opponents.size(); i++) {
+    tCarElt* o = opponents[i];
+    liveFile << "{"
+             << "\"name\":\"" << o->_name << "\","
+             << "\"speed\":" << (o->_speed_x * 3.6) << ","
+			 << "\"Segment\":" << o->_trkPos.seg->id << ","
+             << "\"place\":" << o->_pos
+             << "}";
+    if (i != opponents.size() - 1) liveFile << ",";
 }
+
+    liveFile << "]}";
+    liveFile.close();
+}
+
 void logLiveCoaching(tCarElt* car, tSituation *s) {
     static double lastLiveWrite = 0;
     if (s->currentTime - lastLiveWrite < 2.0) return;
@@ -1341,6 +1370,16 @@ static void common_drive(int index, tCarElt* car, tSituation *s)
 		hasLapStarted = true;
 	}
 
+	std::vector<tCarElt*> opponents = getOpponents(car, s);
+
+    // Now opponents[0..n-1] hold pointers to all other cars
+    for (auto o : opponents) {
+        // you can read positions, speeds, etc.
+        float speed = o->_speed_x;
+        float posX  = o->_pos_X;
+        float posY  = o->_pos_Y;
+		const char* name = o->_name;
+    }
 
 	static int firstTime = 1;
 
