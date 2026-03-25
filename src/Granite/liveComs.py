@@ -298,6 +298,7 @@ class EventController:
 
         if dmg - self._prev["damage"] >= CFG["crash_damage_jump"]:
             evs.append(Event("CRASH", 9))
+            time.sleep(3)
 
         speed_drop = self._prev["speed"] - spd
         if (speed_drop >= CFG["spin_speed_drop"]
@@ -307,6 +308,7 @@ class EventController:
 
         if pos < self._prev["place"] and self._prev["place"] != 99:
             evs.append(Event("OVERTAKE", 7))
+            time.sleep(1)
 
         if lap > self._prev["lap"] and self._prev["lap"] > 0:
             evs.append(Event("LAP", 5))
