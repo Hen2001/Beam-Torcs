@@ -57,8 +57,11 @@ def get_sector(seg_id: int, track_name: str) -> int:
 # ── Hardcoded Commentary Lines ────────────────────────────────────────────────
 LINES = {
     "BATTLE": [
-        ""
-    ]
+    "Dueling with {opponent} in sector {sec}!",
+    "Close fight with {opponent}, P{pos} at {spd} km/h!",
+    "{opponent} under pressure in sector {sec}.",
+    "Battling wheel-to-wheel with {opponent}, speed {spd} km/h!"
+    ],
     "OFF_TRACK": [
         "Car off track in sector {sec} — driver fighting to recover.",
         "Running wide in sector {sec} at {spd} km/h, losing time.",
@@ -250,8 +253,10 @@ CFG = {
     "spin_track_pos_min":   3.5,
     "cooldown": {
         "OFF_TRACK": 10, "CRASH": 15, "SPIN": 20,
-        "OVERTAKE":  10, "LAP":   12, "STANDARD": 8
+        "OVERTAKE":  10, "LAP":   12, "STANDARD": 8,
+        "BATTLE": 8 
     }
+    
 }
 
 class Event:
@@ -263,6 +268,7 @@ class EventController:
     def __init__(self):
         self._fired = {}
         self._prev  = {"speed": 0, "damage": 0, "place": 99, "lap": 0}
+        self._battle_opponent = None
 
     def get_event(self, data: dict):
         now  = time.time()
@@ -273,6 +279,19 @@ class EventController:
         lap  = int(data.get("currentLap", 0))
 
         evs = []
+        battle_threshold = 5  # segments
+
+        if "opponents" in data and pos < 99:  # sanity check
+            player_seg = int(data.get("Segment", 0))
+            for o in data["opponents"]:
+                opp_seg = int(o.get("Segment", -100))
+                if abs(player_seg - opp_seg) <= battle_threshold:
+                    # Don't trigger immediately at race start
+                    if lap > 0 or player_seg > battle_threshold:
+                        evs.append(Event("BATTLE", 6))
+                        # Store opponent info for commentary
+                        self._battle_opponent = o.get("name", "another car")
+                        break
 
         if tpos > CFG["off_track_threshold"]:
             evs.append(Event("OFF_TRACK", 10))
@@ -300,6 +319,8 @@ class EventController:
                 self._fired[e.name] = now
                 self._prev.update({"speed": spd, "damage": dmg, "place": pos, "lap": lap})
                 return e
+        if "BATTLE" not in [e.name for e in evs]:
+            self._battle_opponent = None
         return None
 
 controller = EventController()
@@ -314,6 +335,10 @@ def build_commentary(event: Event, data: dict) -> str:
     lap = int(data.get("currentLap", 0))
     sec = get_sector(int(data.get("Segment", 0)), data.get("trackName", ""))
     fmt = dict(spd=spd, pos=pos, sec=sec, dmg=dmg, lap=lap)
+
+    # Add opponent info if it's a battle
+    if event.name == "BATTLE" and hasattr(controller, "_battle_opponent"):
+        fmt["opponent"] = controller._battle_opponent
 
     # ── Granite freeform: STANDARD, 30% chance ──────────────────────────────
     if event.name == "STANDARD" and random.random() < 0.30:
