@@ -409,18 +409,6 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	GfuiPrintString(buf, grCarInfo[car->index].iconColor, GFUI_FONT_MEDIUM_C, x, y, GFUI_ALIGN_HL_VB);
 	y -= dy;
 	
-	// dy = GfuiFontHeight(GFUI_FONT_SMALL_C);
-	
-	// GfuiPrintString("Fuel:", grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	// if (car->_fuel < 5.0) {
-	// 	clr = grRed;
-	// } else {
-	// 	clr = grWhite;
-	// }
-	// snprintf(buf, BUFSIZE, "%.1f l", car->_fuel);
-	// GfuiPrintString(buf, clr, GFUI_FONT_SMALL_C, x2, y, GFUI_ALIGN_HR_VB);
-	// y -= dy;
-	
 	clr = grWhite;
 	
 	GfuiPrintString("Laps:", clr, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
@@ -467,12 +455,7 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	}
 	y -= dy;
 
-	// for (i = 0; i < 4; i++) {
-	// 	if (car->ctrl.msg[i]) {
-	// 		GfuiPrintString(car->ctrl.msg[i], car->ctrl.msgColor, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	// 		y -= dy;
-	// 	}
-	// }
+	
 	updateTelemetryMessage(car, s);
 
 std::string msg = chatbotMessage;
