@@ -45,7 +45,12 @@
 std::string chatbotMessage  = "Waiting for AI...";
 std::string aiCommentary    = "AI Commentary Loading...";
 std::string aiCoaching      = "AI Coaching Loading...";
+std::string aiEngineer       = "AI Engineer Loading...";
 
+static std::string  eng_fullText     = "";
+static int          eng_wordsShown   = 0;
+static double       eng_lastWordTime = 0.0;
+static bool         eng_textChanged  = false;
 // Word-by-word for commentary 
 static std::string  comm_fullText     = "";
 static int          comm_wordsShown   = 0;
@@ -487,6 +492,8 @@ void drawChatPanel()
     }
 }
 
+
+
 void LiveCommentary()
 {
     static double lastCheck = 0.0;
@@ -751,6 +758,124 @@ void drawCoachingBox()
     if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
 }
 
+void drawEngineerBox()
+{
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+    if (now - eng_lastWordTime >= WORDS_PER_SEC) {
+        int totalWords = 0;
+        bool inWord = false;
+        for (char c : eng_fullText) {
+            if (c != ' ' && !inWord) { inWord = true; totalWords++; }
+            else if (c == ' ')        { inWord = false; }
+        }
+        if (eng_wordsShown < totalWords) {
+            eng_wordsShown++;
+            eng_lastWordTime = now;
+        }
+    }
+    std::string displayText = getFirstNWords(eng_fullText, eng_wordsShown);
+
+    float orthoW = (float)grWinw * 600.0f / (float)grWinh;
+    float scaleX = orthoW / 800.0f;
+
+    float boxWidth = 485.0f * scaleX;
+    float left     = 215.0f * scaleX;
+    int   maxChars = 65;
+
+    std::string line1, line2, line3;
+    wrapText(displayText, maxChars, line1, line2, line3);
+
+    int lineCount = 1;
+    if (!line2.empty()) lineCount = 2;
+    if (!line3.empty()) lineCount = 3;
+
+    float labelH = 20.0f;
+    float lineH  = 16.0f;
+    float padV   = 8.0f;
+    float height = labelH + (lineCount * lineH) + padV;
+
+    // Anchor to the TOP of the box rather than the bottom
+    float top    = 540.0f + height;   // sits just above the commentary box
+    float bottom = top - height;
+    float right  = left + boxWidth;
+
+    glEnable(GL_BLEND);
+    glBlendFunc(GL_SRC_ALPHA, GL_ONE_MINUS_SRC_ALPHA);
+
+    
+    glColor4f(0.067f, 0.067f, 0.067f, 0.82f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+    
+    glColor4f(0.18f, 0.18f, 0.18f, 0.82f);
+    glBegin(GL_LINE_LOOP);
+        glVertex2f(left,  bottom);
+        glVertex2f(right, bottom);
+        glVertex2f(right, top);
+        glVertex2f(left,  top);
+    glEnd();
+
+   
+    glColor4f(0.18f, 0.80f, 0.44f, 1.0f);
+    glBegin(GL_QUADS);
+        glVertex2f(left,        bottom);
+        glVertex2f(left + 3.0f, bottom);
+        glVertex2f(left + 3.0f, top);
+        glVertex2f(left,        top);
+    glEnd();
+
+   
+    glColor4f(0.165f, 0.165f, 0.165f, 1.0f);
+    glBegin(GL_LINES);
+        glVertex2f(left + 3.0f,  top - labelH);
+        glVertex2f(right - 2.0f, top - labelH);
+    glEnd();
+
+    glDisable(GL_BLEND);
+
+    
+    glColor3f(0.18f, 0.80f, 0.44f);
+    drawBitmapText("RACE ENGINEER", left + 8.0f, top - 14.0f);
+
+  
+    glColor3f(0.941f, 0.941f, 0.941f);
+    float textX = left + 8.0f;
+    if (lineCount >= 1) drawBitmapText(line1.c_str(), textX, bottom + lineH * (lineCount - 1) + padV/2);
+    if (lineCount >= 2) drawBitmapText(line2.c_str(), textX, bottom + lineH * (lineCount - 2) + padV/2);
+    if (lineCount >= 3) drawBitmapText(line3.c_str(), textX, bottom + padV/2);
+}
+
+void LiveEngineer()
+{
+    static double lastCheck = 0.0;
+    double now = glutGet(GLUT_ELAPSED_TIME) / 1000.0;
+    if (now - lastCheck < 0.5) return;
+    lastCheck = now;
+
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_engineer.txt";
+    FILE* f = fopen(path.c_str(), "r");
+    if (!f) return;
+
+    char buf[512];
+    if (fgets(buf, sizeof(buf), f)) {
+        buf[strcspn(buf, "\n")] = 0;
+        std::string incoming(buf);
+        if (incoming != aiEngineer) {
+            aiEngineer         = incoming;
+            eng_fullText       = incoming;
+            eng_wordsShown     = 0;
+            eng_lastWordTime   = now;
+            eng_textChanged    = true;
+        }
+    }
+    fclose(f);
+}
+
 /* Update screen display */
 void cGrScreen::update(tSituation *s, float Fps)
 {
@@ -843,12 +968,18 @@ void cGrScreen::update(tSituation *s, float Fps)
 			LiveCoaching();
 		}
     	updateTelemetryMessage(curCar, s);
-    	//drawChatPanel();
+    	
 		if (commentary){
 			drawCommentaryBox(); 
 		}
 		if (coach){
 			drawCoachingBox();
+		}
+		if (engineer) {
+    		LiveEngineer();
+		}
+		if (engineer) {
+    		drawEngineerBox();
 		}
 	}
 

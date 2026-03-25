@@ -1,4 +1,4 @@
-#!/usr/bin/env python3
+
 
 import json
 import os
@@ -39,11 +39,10 @@ os.environ["PULSE_SERVER"] = "unix:/mnt/wslg/PulseServer"
 os.environ["DISPLAY"]      = os.environ.get("DISPLAY", ":0")
 
 # ── Paths ─────────────────────────────────────────────────────────────────────
-DATA_DIR   = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
-# STATS_PATH = os.path.join(DATA_DIR, "engineer_data.json")
-# SPEED_PATH = os.path.join(DATA_DIR, "speed.json")
-ENGINEER_PATH = os.path.join(DATA_DIR, "Race_Engineer_Data.json")
-WAV_PATH   = "/tmp/torcs_question.wav"
+DATA_DIR          = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData")
+ENGINEER_PATH     = os.path.join(DATA_DIR, "Race_Engineer_Data.json")
+ENGINEER_OUT_PATH = os.path.join(DATA_DIR, "live_engineer.txt")
+WAV_PATH          = "/tmp/torcs_question.wav"
 
 SAMPLE_RATE   = 16000
 CHANNELS      = 1
@@ -92,6 +91,10 @@ granite    = AutoModelForCausalLM.from_pretrained(
     device_map="cpu"
 )
 granite.eval()
+
+# Initialise the HUD file so the poller never gets a null handle on first tick
+with open(ENGINEER_OUT_PATH, "w") as f:
+    f.write("Engineer standing by.")
 
 # Signal to TORCS that we're ready
 with open('/tmp/torcs_engineer_ready', 'w') as f:
@@ -180,22 +183,22 @@ def load_race_context():
             with open(ENGINEER_PATH, "r") as f:
                 data = json.load(f)  # parse as single object, not line by line
                 context["current speed in km/h"] = data.get("speed_kmh", 0)
-                context["avg_speed_km/h"] = data.get("avg_speed_kmh", 0)
-                context["distance raced"]  = data.get("dist_raced", "N/A")
-                context["current lap"] = data.get("lap", "N/A")
-                context["fuel"] = data.get("fuel", "N/A")
-                context["tire temperature"] = data.get("avg_tyre_temp", "N/A")
-                context["tire condition"] = data.get("avg_tyre_condition", "N/A")
-                context["brake temperature"] = data.get("avg_brake_temp", "N/A")
-                context["current car damage"] = data.get("damage", "N/A")
+                context["avg_speed_km/h"]        = data.get("avg_speed_kmh", 0)
+                context["distance raced"]        = data.get("dist_raced", "N/A")
+                context["current lap"]           = data.get("lap", "N/A")
+                context["fuel"]                  = data.get("fuel", "N/A")
+                context["tire temperature"]      = data.get("avg_tyre_temp", "N/A")
+                context["tire condition"]        = data.get("avg_tyre_condition", "N/A")
+                context["brake temperature"]     = data.get("avg_brake_temp", "N/A")
+                context["current car damage"]    = data.get("damage", "N/A")
 
         except Exception:
             pass
     return context
 
 def build_prompt(question, context):
-    """Build the prompt for Granite"""
-    fuel  = context.get('fuel', None)
+    """Build the prompt for Granite."""
+    fuel = context.get('fuel', None)
     fuel_str = f"{fuel:.1f}L" if isinstance(fuel, (int, float)) else "N/A"
 
     return f"""You are a Formula 1 race engineer giving concise real-time information to your driver. Answer in 1-2 sentences only, refer to relevant telemetry data where possible.
@@ -235,6 +238,12 @@ def ask_granite(question):
     sentences = response.split(".")
     return ". ".join(sentences[:2]).strip() + "."
 
+# ── HUD output ────────────────────────────────────────────────────────────────
+def write_to_hud(text):
+    """Write the engineer response to the HUD polling file."""
+    with open(ENGINEER_OUT_PATH, "w") as f:
+        f.write(text)
+
 # ── TTS ───────────────────────────────────────────────────────────────────────
 def speak(text):
     """Speak the given text using Festival TTS."""
@@ -249,7 +258,7 @@ if __name__ == "__main__":
     print("[RaceEngineer] Ready. Hold R to ask a question.")
     while True:
         wav      = record_question(key="r")
-        
+
         result   = whisper_model.transcribe(wav)
         question = result["text"].strip()
         os.remove(wav)
@@ -261,4 +270,5 @@ if __name__ == "__main__":
         print(f"[RaceEngineer] Driver: {question}")
         response = ask_granite(question)
         print(f"[RaceEngineer] Engineer: {response}")
+        write_to_hud(response)
         speak(response)
