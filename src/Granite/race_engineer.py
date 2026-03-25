@@ -94,7 +94,7 @@ granite.eval()
 
 # Initialise the HUD file so the poller never gets a null handle on first tick
 with open(ENGINEER_OUT_PATH, "w") as f:
-    f.write("Engineer standing by.")
+    f.write("Hold 'R' to talk to Race Engineer.")
 
 # Signal to TORCS that we're ready
 with open('/tmp/torcs_engineer_ready', 'w') as f:
