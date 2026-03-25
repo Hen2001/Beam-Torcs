@@ -98,20 +98,21 @@ static const TrackProfile TRACK_PROFILES[] = {
         }, 9
     },
     {
-        "g-speedway",
+        "g-track-1",
         {
             { 81,  "Straight"  },
             { 191, "Infield"   },
+			{ 999, "Final Run" },
             
-        }, 2
+        }, 3
     },
     {
         "g-track-2",
         {
             { 171, "Sector 1" },
             { 306, "Sector 2" },
-            
-        }, 2
+            { 999, "Sector 3" },
+        }, 3
     },
     {
         "g-track-3",
@@ -119,8 +120,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 66,  "Sector 1" },
             { 131, "Sector 2" },
             { 251, "Sector 3" },
-            
-        }, 3
+            { 999, "Sector 4" },
+        }, 4
     },
     {
         "ole-road-1",
@@ -129,8 +130,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 301, "Sector 2" },
             { 486, "Sector 3" },
             { 606, "Sector 4" },
-            
-        }, 4
+            { 999, "Sector 5" },
+        }, 5
     },
     {
         "ruudskogen",
@@ -138,8 +139,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 201, "Sector 1" },
             { 421, "Sector 2" },
             { 571, "Sector 3" },
-            
-        }, 3
+            { 999, "Sector 4" },
+        }, 4
     },
     {
         "spring",
@@ -162,8 +163,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 2141, "Sector 16" },
             { 2471, "Sector 17" },
             { 2741, "Sector 18" },
-            
-        }, 18
+            { 9999, "Sector 19" },
+        }, 19
     },
     {
         "e-track-1",
@@ -176,8 +177,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 261, "Sector 6" },
             { 371, "Sector 7" },
             { 401, "Sector 8" },
-            
-        }, 8
+            { 999, "Sector 9" },
+        }, 9
     },
     {
         "e-track-2",
@@ -191,8 +192,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 1081, "Sector 7" },
             { 1201, "Sector 8" },
             { 1301, "Sector 9" },
-            
-        }, 9
+            { 9999, "Sector 10" },
+        }, 10
     },
     {
         "e-track-3",
@@ -205,8 +206,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 601, "Sector 6" },
             { 701, "Sector 7" },
             { 731, "Sector 8" },
-            
-        }, 8
+            { 999, "Sector 9" },
+        }, 9
     },
     {
         "e-track-4",
@@ -217,8 +218,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 501, "Sector 4" },
             { 601, "Sector 5" },
             { 701, "Sector 6" },
-            
-        }, 6
+            { 999, "Sector 7" },
+        }, 7
     },
     {
         "e-track-6",
@@ -232,11 +233,11 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 340, "Sector 7" },
             { 381, "Sector 8" },
             { 440, "Sector 9" },
-            
-        }, 9
+            { 999, "Sector 10" },
+        }, 10
     },
     {
-        "e-road",
+        "eroad",
         {
             { 41,  "Sector 1" },
             { 71,  "Sector 2" },
@@ -245,8 +246,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 311, "Sector 5" },
             { 341, "Sector 6" },
             { 391, "Sector 7" },
-            
-        }, 7
+            { 999, "Sector 8" },
+        }, 8
     },
     {
         "forza",
@@ -261,7 +262,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 1051, "Sector 8"  },
             { 1251, "Sector 9"  },
             { 1401, "Sector 10" },
-        }, 10
+			{ 9999, "Sector 11" },
+        }, 11
     },
     {
         "street-1",
@@ -269,16 +271,16 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 91,  "Sector 1" },
             { 178, "Sector 2" },
             { 250, "Sector 3" },
-            
-        }, 3
+            { 999, "Sector 4" },
+        }, 4
     },
     {
         "wheel-1",
         {
             { 127, "Sector 1" },
             { 388, "Sector 2" },
-            
-        }, 2
+            { 999, "Sector 3" },
+        }, 3
     },
     {
         "wheel-2",
@@ -288,16 +290,16 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 522, "Sector 3" },
             { 589, "Sector 4" },
             { 644, "Sector 5" },
-            
-        }, 5
+            { 999, "Sector 6" },
+        }, 6
     },
     {
         "aalborg",
         {
             { 125, "Sector 1" },
             { 175, "Sector 2" },
-            
-        }, 2
+            { 999, "Sector 3" },
+        }, 3
     },
     {
         "alpine-1",
@@ -306,8 +308,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 501, "Sector 2" },
             { 691, "Sector 3" },
             { 927, "Sector 4" },
-           
-        }, 4
+            { 999, "Sector 5" },
+        }, 5
     },
     {
         "alpine-2",
@@ -315,8 +317,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 206, "Sector 1" },
             { 374, "Sector 2" },
             { 601, "Sector 3" },
-            
-        }, 3
+            { 999, "Sector 4" },
+        }, 4
     },
     {
         "brondehach",
@@ -325,8 +327,8 @@ static const TrackProfile TRACK_PROFILES[] = {
             { 301, "Sector 2" },
             { 521, "Sector 3" },
             { 701, "Sector 4" },
-            
-        }, 4
+            { 999, "Sector 5" },
+        }, 5
     },
 };
 
@@ -639,7 +641,7 @@ void updateTelemetryMessage(tCarElt* car, tSituation* s)
 {
     char line1[128];
     char line2[128];
-	
+	//printf("[DEBUG] Track internalname: '%s'\n", grTrack->internalname);
     int segId  = car->_trkPos.seg->id;
     int macro  = getMacroSegment(segId);
     int lap    = car->_laps;
