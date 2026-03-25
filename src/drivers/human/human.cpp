@@ -686,7 +686,7 @@ static void endStatistics(tCarElt* car, tSituation *s)
 {
     // Throttle: Only overwrite every 0.1 seconds to save CPU/Disk I/O
     static double lastWriteTime = 0;
-    if (s->currentTime - lastWriteTime < 0.1) return; 
+    if (s->currentTime - lastWriteTime < 1) return; 
     lastWriteTime = s->currentTime;
 
     const char* homeDir = getenv("HOME");
