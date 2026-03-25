@@ -62,6 +62,7 @@ static void drive_at(int index, tCarElt* car, tSituation *s);
 static void newrace(int index, tCarElt* car, tSituation *s);
 static void endrace(int index, tCarElt* car, tSituation *s);  // Added end race function to log STATS
 static int  pitcmd(int index, tCarElt* car, tSituation *s);
+static void writeEndStatisticsFromSegments();
 
 int joyPresent = 0;
 //bool responseBot = 0;
@@ -275,7 +276,7 @@ if (speedOut.is_open()) {
 		system("pkill -9 -f race_engineer.py");
 	}
 	printPerformanceReport();
-  
+	writeEndStatisticsFromSegments();
 	
 	int	idx = index - 1;
 
@@ -627,6 +628,52 @@ void writeSegmentTimeToJson(int segment, int lap, double time) {
 // At file scope, near the other static segment tracking variables
 static double inMemSegTimes[100][9] = {0}; // [lap][macroSeg]
 
+static void writeEndStatisticsFromSegments()
+{
+    if (lastLap != -1) {
+        double total = 0.0;
+        for (int i = 0; i < 9; i++)
+            total += inMemSegTimes[lastLap][i];
+        bool alreadyAdded = (lapCount > 0 && fabs(lapTimes[lapCount-1] - total) < 0.01);
+        if (total > 5.0 && lapCount < 100 && !alreadyAdded)
+            lapTimes[lapCount++] = total;
+    }
+
+    if (lapCount == 0) return;
+
+    std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/end_statistics.json";
+
+    // Read existing file content
+    std::string existing;
+    std::ifstream in(path.c_str());
+    if (in.is_open()) {
+        std::getline(in, existing, '\0'); // read whole file
+        in.close();
+    }
+
+    // Chop off from "lap_times": onwards (or closing } if no lap_times yet)
+    size_t pos = existing.find("\"lap_times\":");
+    if (pos != std::string::npos)
+        existing = existing.substr(0, pos - 1); // remove trailing comma too
+    else {
+        // strip closing }
+        size_t end = existing.rfind('}');
+        if (end != std::string::npos)
+            existing = existing.substr(0, end);
+    }
+
+    // Append updated lap times
+    std::ofstream out(path.c_str(), std::ios::out | std::ios::trunc);
+    if (!out.is_open()) return;
+
+    out << existing << ",\"lap_times\":[";
+    for (int i = 0; i < lapCount; i++) {
+        out << "{\"lap\":" << (i+1) << ",\"time\":" << lapTimes[i] << "}";
+        if (i < lapCount - 1) out << ",";
+    }
+    out << "]}" << std::endl;
+}
+
 void logSegmentPosition(tCarElt *car, tSituation *s)
 {
     int segId    = car->_trkPos.seg->id;
@@ -684,7 +731,6 @@ void logSegmentPosition(tCarElt *car, tSituation *s)
   
 static void endStatistics(tCarElt* car, tSituation *s)
 {
-    // Throttle: Only overwrite every 0.1 seconds to save CPU/Disk I/O
     static double lastWriteTime = 0;
     if (s->currentTime - lastWriteTime < 1) return; 
     lastWriteTime = s->currentTime;
@@ -719,10 +765,7 @@ static void endStatistics(tCarElt* car, tSituation *s)
 
     outFile << "{"
         << "\"avg_speed_kmh\":"  << (avgSpeed * 3.6)  << ","
-        << "\"avg_lap_time\":"   << avgLapTime         << ","
-        << "\"best_lap_time\":"  << bestLapTime        << ","
         << "\"laps_completed\":" << (lapCount > 0 ? lapCount : car->_laps) << ","
-        << "\"current_lap\":"    << car->_laps         << ","
         << "\"finish_pos\":"     << car->_pos          << ","
         << "\"damage\":"         << car->_dammage      << ","
         << "\"time_penalty\":"   << car->_penaltyTime  << ","
@@ -736,6 +779,7 @@ static void endStatistics(tCarElt* car, tSituation *s)
     outFile << "]}" << std::endl;
     outFile.close();
 }
+
 
 void logEngineerData(tCarElt* car, tSituation *s)
 {
