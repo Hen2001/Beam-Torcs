@@ -547,6 +547,55 @@ void ReLoadAIFeatures(void)
 
     char line[256];
     int waited = 0;
+    while (waited < 120)
+    {
+        sleep(1);
+        waited++;
+
+        FILE *f = fopen(logPath.c_str(), "r");
+        if (!f)
+        {
+            RmLoadingScreenSetText("Loading Granite...");
+            continue;
+        }
+
+        // Read the file to get the most recent progress line
+        bool foundProgress = false;
+        while (fgets(line, sizeof(line), f))
+        {
+            // Check if loading is complete
+            if (strstr(line, "100%") != NULL)
+            {
+                RmLoadingScreenSetText("ibm-granite/granite-4.0-350m ready!");
+                fclose(f);
+                sleep(1);
+                return;
+            }
+
+            // Extract percentage
+            const char *pctMatch = strstr(line, "Loading weights:");
+            if (pctMatch)
+            {
+                int percent = 0;
+                const char *numStart = pctMatch + 16;
+                while (*numStart == ' ') numStart++;
+                
+                if (sscanf(numStart, "%d%%", &percent) == 1) {
+                    char msg[64];
+                    snprintf(msg, sizeof(msg), "Loading Granite: %d%%", percent);
+                    RmLoadingScreenSetText(msg);
+                    foundProgress = true;
+                }
+            }
+        }
+
+        if (!foundProgress)
+        {
+            RmLoadingScreenSetText("Loading AI features...");
+        }
+
+        fclose(f);
+    }
 // 1. Initialize a variable to track the last displayed message
 std::string lastMsg = "";
 

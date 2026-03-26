@@ -913,9 +913,9 @@ void logLiveCoaching(tCarElt* car, tSituation *s) {
     int macro = getMacroSegment(car->_trkPos.seg->id);
     int lap   = car->_laps;
 
-    // Read segment_times.json that's already being written by logSegmentPosition
+    // Read segment_times.json
     std::string segFile = std::string(getenv("HOME")) + "/.torcs/DrivingData/segment_times.json";
-    std::map<int, std::map<int, double>> segTimes; // [lap][seg] = time
+    std::map<int, std::map<int, double>> segTimes;
 
     std::ifstream f(segFile.c_str());
     std::string line;
@@ -930,7 +930,6 @@ void logLiveCoaching(tCarElt* car, tSituation *s) {
         if (l >= 0 && seg >= 0) segTimes[l][seg] = t;
     }
 
-    // Get prev lap times (lap - 1)
     double prevTime = 0.0, curSegTime = 0.0;
     if (segTimes.count(lap - 1) && segTimes[lap - 1].count(macro))
         prevTime = segTimes[lap - 1][macro];
@@ -939,23 +938,43 @@ void logLiveCoaching(tCarElt* car, tSituation *s) {
 
     double delta = (prevTime > 0.0 && curSegTime > 0.0) ? (curSegTime - prevTime) : 0.0;
 
+    // Get opponents
+    std::vector<tCarElt*> opponents = getOpponents(car, s);
+
     std::string path = std::string(getenv("HOME")) + "/.torcs/DrivingData/live_coaching_data.json";
     std::ofstream out(path.c_str(), std::ios::out | std::ios::trunc);
-    if (out.is_open()) {
+    if (!out.is_open()) return;
+
+    out << "{"
+        << "\"speed\":"       << (car->_speed_x * 3.6)              << ","
+        << "\"gear\":"        << car->_gear                          << ","
+        << "\"damage\":"      << car->_dammage                       << ","
+        << "\"trackPos\":"    << car->_trkPos.toMiddle               << ","
+        << "\"segment\":"     << macro                               << ","
+        << "\"segmentRaw\":"  << car->_trkPos.seg->id                << ","
+        << "\"lap\":"         << lap                                 << ","
+        << "\"prevSegTime\":" << prevTime                            << ","
+        << "\"curSegTime\":"  << curSegTime                          << ","
+        << "\"delta\":"       << delta                               << ","
+        << "\"hasPrevLap\":"  << (prevTime > 0.0 ? "true" : "false") << ","
+        << "\"opponents\":[";
+
+    for (size_t i = 0; i < opponents.size(); i++) {
+        tCarElt* o = opponents[i];
+        int oppMacro = getMacroSegment(o->_trkPos.seg->id);
         out << "{"
-            << "\"speed\":"       << (car->_speed_x * 3.6) << ","
-            << "\"gear\":"        << car->_gear             << ","
-            << "\"damage\":"      << car->_dammage          << ","
-            << "\"trackPos\":"    << car->_trkPos.toMiddle  << ","
-            << "\"segment\":"     << macro                  << ","
-            << "\"lap\":"         << lap                    << ","
-            << "\"prevSegTime\":" << prevTime               << ","
-            << "\"curSegTime\":"  << curSegTime             << ","
-            << "\"delta\":"       << delta                  << ","
-            << "\"hasPrevLap\":"  << (prevTime > 0.0 ? "true" : "false")
+            << "\"name\":\""   << o->_name             << "\","
+            << "\"speed\":"    << (o->_speed_x * 3.6)  << ","
+            << "\"segment\":"  << oppMacro              << ","
+            << "\"segmentRaw\":" << o->_trkPos.seg->id << ","
+            << "\"place\":"    << o->_pos               << ","
+            << "\"damage\":"   << o->_dammage
             << "}";
-        out.close();
+        if (i != opponents.size() - 1) out << ",";
     }
+
+    out << "]}";
+    out.close();
 }
 /*
  * Function
