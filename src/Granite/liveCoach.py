@@ -40,64 +40,92 @@ HAS_CHAT_TEMPLATE = (hasattr(tokenizer, "apply_chat_template") and tokenizer.cha
 # ── Hardcoded Coaching Lines ──────────────────────────────────────────────────
 LINES = {
     "WIDE": [
-        "You're too wide in {seg} — stay off the dirty air.",
-        "Track limits! Keep it between the white lines in {seg}.",
-        "You're losing time running wide in {seg}. Tighten the entry.",
-        "Watch the exit in {seg}, you're pushing too far out."
+        "You're running wide in {seg}. Tighten your line.",
+        "Stay within track limits in {seg}.",
+        "You're losing exit speed in {seg}.",
+        "Control the car on exit in {seg}."
     ],
     "LOSING_TIME": [
-        "Brake later into {seg} — you're leaving time on the table.",
-        "Slow through {seg}. Carry more mid-corner speed.",
-        "Get on the power earlier out of {seg}.",
-        "Focus on the apex in {seg}, you're missing the clip.",
-        "Delta is climbing; trust the aero through {seg}."
+        "Brake later into {seg}.",
+        "Carry more speed through {seg}.",
+        "Earlier throttle out of {seg}.",
+        "Focus on the apex in {seg}.",
+        "Trust the grip through {seg}."
     ],
     "GAINING_TIME": [
-        "Excellent pace through {seg}, keep that rhythm!",
-        "Delta is green! That's the line to take in {seg}.",
-        "Purple sector! You found the limit in {seg}.",
-        "Perfect exit from {seg}. Keep pushing."
+        "Good line through {seg}. Repeat it.",
+        "Strong exit from {seg}.",
+        "You're gaining time there. Stay consistent.",
+        "Keep that rhythm through {seg}."
     ],
     "DAMAGE": [
-        "Car is damaged! Be careful on the brakes into {seg}.",
-        "Aero balance is off due to damage. Adjust your entry for {seg}.",
-        "Contact detected. Check the steering alignment through {seg}."
+        "Car has damage. Brake earlier into {seg}.",
+        "Adjust entry speed for {seg}.",
+        "Keep inputs smooth through {seg}."
     ],
     "BATTLE": [
-        "Defensive line into {seg}! Don't give them the inside.",
-        "Opponent P{opp_pos} is closing. Close the door in {seg}.",
-        "Pressure is on. Stay focused on your marks in {seg}.",
-        "He's looking for a move in {seg}. Hold the middle."
+        "Cover the inside into {seg}.",
+        "Stay defensive into {seg}.",
+        "Hold your line through {seg}.",
+        "Don't open the door in {seg}."
     ],
     "BUILDING_BASELINE": [
-        "Focus on consistency. Nail the apex in {seg}.",
-        "Building data. Keep it smooth through {seg}.",
-        "No reference lap yet. Just find your flow in {seg}."
+        "Focus on consistency in {seg}.",
+        "Keep inputs smooth through {seg}.",
+        "Build a clean reference lap."
     ],
     "STANDARD": [
-        "Smooth is fast. Nice work through {seg}.",
-        "Steady through {seg}. Speed is {spd} km/h.",
-        "Holding steady. Next target is the {seg}.",
-        "Good gear management. Keep it up."
+        "Keep it smooth through {seg}.",
+        "Maintain this pace.",
+        "Focus on your braking point.",
+        "Good control. Keep building.",
+        "You're doing well. Stay focused."
     ]
 }
 
-# ── Granite Templates ─────────────────────────────────────────────────────────
+# ── Granite Templates (ALL EVENTS) ────────────────────────────────────────────
 GRANITE_TEMPLATES = {
+    "WIDE": [
+        "You're running wide in {seg}. Fix it by",
+        "Track limits in {seg}. Correct it by",
+        "You're drifting out in {seg}. Focus on"
+    ],
     "LOSING_TIME": [
-        "You're {delta:.2f}s down in {seg}. To recover, you need to —",
-        "Lost time in {seg}. Coach advice: —",
+        "You're losing time in {seg}. Improve by",
+        "Delta is up in {seg}. Focus on",
+        "You're off pace in {seg}. Work on"
+    ],
+    "GAINING_TIME": [
+        "You're gaining time in {seg}. Keep it by",
+        "Strong pace in {seg}. Maintain by",
+        "Good sector in {seg}. Continue by"
     ],
     "DAMAGE": [
-        "Car damage is affecting {seg}. Technical tip: —",
-        "With that wing damage, through {seg} you should —"
+        "Car damage affects {seg}. Adjust by",
+        "With damage in {seg}, compensate by",
+        "Balance is off in {seg}. Manage it by"
+    ],
+    "BATTLE": [
+        "Opponent pressure into {seg}. Defend by",
+        "Into {seg}, manage the opponent by",
+        "Car behind is close in {seg}. Control it by"
+    ],
+    "BUILDING_BASELINE": [
+        "Building baseline in {seg}. Focus on",
+        "No reference yet in {seg}. Work on",
+        "Establish consistency in {seg} by"
+    ],
+    "STANDARD": [
+        "Through {seg}, improve by",
+        "Maintain performance in {seg} by",
+        "Refine your technique in {seg} by"
     ]
 }
 
-# ── Granite Completion & Freeform ─────────────────────────────────────────────
+# ── Granite Completion ────────────────────────────────────────────────────────
 SYSTEM_COACH = (
-    "You are a professional F1 driving coach. Complete the instruction with "
-    "exactly 5 words or fewer. Be technical, sharp, and actionable."
+    "You are a professional race Coach. Complete the sentence in 3 to 5 words. "
+    "Be precise, technical, and give actionable driving advice."
 )
 
 def granite_complete(prefix: str) -> str:
@@ -115,14 +143,15 @@ def granite_complete(prefix: str) -> str:
         txt = tokenizer.decode(out[0], skip_special_tokens=True)
         res = txt.split("assistant")[-1].strip() if HAS_CHAT_TEMPLATE else txt.split(prefix)[-1].strip()
         return res.split(".")[0].split("\n")[0].strip().replace('"', '')
-    except: return ""
+    except:
+        return ""
 
 # ── Event Controller ──────────────────────────────────────────────────────────
 CFG = {
     "wide_threshold": 7.5,
     "damage_jump": 50,
     "cooldown": {
-        "WIDE": 8, "DAMAGE": 15, "LOSING_TIME": 12, 
+        "WIDE": 8, "DAMAGE": 15, "LOSING_TIME": 12,
         "GAINING_TIME": 15, "BATTLE": 10, "STANDARD": 20
     }
 }
@@ -143,15 +172,12 @@ class CoachController:
         
         evs = []
 
-        # 1. Damage (High Priority)
         if dmg > self._prev["damage"] + CFG["damage_jump"]:
             evs.append(Event("DAMAGE", 10))
         
-        # 2. Track Limits
         if tpos > CFG["wide_threshold"]:
             evs.append(Event("WIDE", 9))
 
-        # 3. Battles
         if data.get("opponents"):
             p_seg = int(data.get("segment", 0))
             for o in data["opponents"]:
@@ -159,12 +185,13 @@ class CoachController:
                     evs.append(Event("BATTLE", 8))
                     break
 
-        # 4. Performance
         if not has_prev or lap < 2:
             evs.append(Event("BUILDING_BASELINE", 2))
         else:
-            if delta > 0.5: evs.append(Event("LOSING_TIME", 7))
-            elif delta < -0.3: evs.append(Event("GAINING_TIME", 6))
+            if delta > 0.5:
+                evs.append(Event("LOSING_TIME", 7))
+            elif delta < -0.3:
+                evs.append(Event("GAINING_TIME", 6))
 
         evs.append(Event("STANDARD", 0))
         evs.sort(key=lambda e: e.priority, reverse=True)
@@ -184,8 +211,6 @@ class Event:
 controller = CoachController()
 
 # ── Coaching Builder ──────────────────────────────────────────────────────────
-_last_used = {}
-
 def build_coaching(event: Event, data: dict) -> str:
     seg_idx = int(data.get("segment", 0))
     seg_name = SEGMENT_NAMES[seg_idx] if seg_idx < len(SEGMENT_NAMES) else f"Sector {seg_idx}"
@@ -194,18 +219,17 @@ def build_coaching(event: Event, data: dict) -> str:
     
     fmt = {"seg": seg_name, "delta": delta, "abs_delta": abs(delta), "spd": spd}
     
-    # Opponent info for battles
     if event.name == "BATTLE" and data.get("opponents"):
         fmt["opp_pos"] = data["opponents"][0].get("place", "??")
 
-    # ── Granite logic: 40% chance on specific events ─────────────────────────
-    if event.name in GRANITE_TEMPLATES and random.random() < 0.40:
+    # ── Granite now 50% chance ───────────────────────────────────────────────
+    if event.name in GRANITE_TEMPLATES and random.random() < 0.50:
         prefix = random.choice(GRANITE_TEMPLATES[event.name]).format(**fmt)
         completion = granite_complete(prefix)
         if completion:
             return f"{prefix} {completion}"
 
-    # ── Fallback to Hardcoded ────────────────────────────────────────────────
+    # ── Fallback ─────────────────────────────────────────────────────────────
     pool = LINES.get(event.name, LINES["STANDARD"])
     return random.choice(pool).format(**fmt)
 
