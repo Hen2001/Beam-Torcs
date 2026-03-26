@@ -3,7 +3,7 @@ from transformers import AutoTokenizer, AutoModelForCausalLM
 import sys
 
 # ── Setup Logging ─────────────────────────────────────────────────────────────
-log_path = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData", "granite_coach_error.log")
+log_path = os.path.join(os.path.expanduser("~"), ".torcs", "DrivingData", "granite_error.log")
 log_file = open(log_path, 'w', buffering=1)
 sys.stderr = log_file
 
