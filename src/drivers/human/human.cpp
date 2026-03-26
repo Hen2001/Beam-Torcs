@@ -380,8 +380,7 @@ int getMacroSegment_Corkscrew(int segId) {
     if (segId < 390) return 5;
     if (segId < 500) return 6;
     if (segId < 540) return 7;
-    if (segId < 604) return 8;
-    return 9;
+    return 8;  
 }
 
 int getMacroSegment_CGSpeedway(int segId) {

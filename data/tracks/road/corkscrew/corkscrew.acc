@@ -86437,6 +86437,7 @@ refs 3
 kids 0
 OBJECT poly
 name "OBJECT12011"
+loc 0.0168457 0 -0.131165
 texture "treeRNS2.png"
 crease 45.000000
 numvert 38
@@ -199504,7 +199505,7 @@ refs 3
 kids 0
 OBJECT poly
 name "rect"
-loc 702.196 24.3624 -854.599
+loc 702.196 24.3624 -855.471
 texture "IBM-SkillsBuild.png"
 crease 45.000000
 numvert 4
