@@ -80,7 +80,7 @@ def ensure_pulse():
 
 # ── Load models ───────────────────────────────────────────────────────────────
 print("Loading Whisper...")
-whisper_model = whisper.load_model("base")
+whisper_model = whisper.load_model("small")
 
 print("Loading Granite...")
 model_name = "ibm-granite/granite-4.0-350m"
