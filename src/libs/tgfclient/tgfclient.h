@@ -173,6 +173,7 @@ extern void GfuiUnSelectCurrent(void);
 #define GFUI_FONT_MEDIUM_C	6
 #define GFUI_FONT_SMALL_C	7
 #define GFUI_FONT_DIGIT		8
+#define GFUI_FONT_HUGE 		9
 extern int GfuiLabelCreate(void *scr, const char *text, 
 			int font, int x, int y, int align, int maxlen);
 extern int GfuiLabelCreateEx(void *scr, const char *text, float *fgColor, int font, int x, int y, int align, int maxlen);

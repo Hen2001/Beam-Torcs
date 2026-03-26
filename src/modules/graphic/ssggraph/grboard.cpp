@@ -143,7 +143,7 @@ cGrBoard::grDispDebug(float fps, tCarElt *car)
 	char buf[BUFSIZE];
 	int  x, y;
 	
-	x = Winx + Winw - 100;
+	x = Winx + Winw - 120;
 	y = Winy + Winh - 30;
 	
 	snprintf(buf, BUFSIZE, "FPS: %.1f", fps);
@@ -905,7 +905,7 @@ switch (curr->_pos) {
         break;
 }
 
-GfuiPrintString(posbuf, posColor, GFUI_FONT_BIG_C, Winx + Winw - 10, Winy + Winh - 30, GFUI_ALIGN_HR_VB);
+GfuiPrintString(posbuf, posColor, GFUI_FONT_HUGE, Winx + Winw - 0, Winy + Winh - 50, GFUI_ALIGN_HR_VB);
 
 	trackMap->display(curr, s, Winx, Winy, Winw, Winh);
 }
