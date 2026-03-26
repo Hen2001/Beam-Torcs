@@ -566,7 +566,7 @@ void ReLoadAIFeatures(void)
             // Check if loading is complete
             if (strstr(line, "100%") != NULL)
             {
-                RmLoadingScreenSetText("AI Engineer ready!");
+                RmLoadingScreenSetText("ibm-granite/granite-4.0-350m ready!");
                 fclose(f);
                 sleep(1);
                 return;
