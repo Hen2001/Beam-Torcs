@@ -151,7 +151,7 @@ static void reSelectRaceman(void *params)
 	}
 
 	e = strstr(s, PARAMEXT);
-	ReInfo->_reFilename = strndup(s, e-s+1);
+	ReInfo->_reFilename = strndup(s, (size_t)(e - s + 1));
 	ReInfo->_reFilename[e-s] = '\0';
 	ReInfo->_reName = GfParmGetStr(params, RM_SECT_HEADER, RM_ATTR_NAME, "");
 	ReStateApply(RE_STATE_CONFIG);
@@ -193,7 +193,7 @@ void ReRunRaceOnConsole(const char* raceconfig)
 	}
 
 	e = strstr(s, PARAMEXT);
-	ReInfo->_reFilename = strndup(s, e-s+1);
+	ReInfo->_reFilename = strndup(s, (size_t)(e - s + 1));
 	ReInfo->_reFilename[e-s] = '\0';
 	ReInfo->_reName = GfParmGetStr(ReInfo->params, RM_SECT_HEADER, RM_ATTR_NAME, "");
 
@@ -596,8 +596,67 @@ void ReLoadAIFeatures(void)
 
         fclose(f);
     }
+// 1. Initialize a variable to track the last displayed message
+std::string lastMsg = "";
 
-    RmLoadingScreenSetText("Failed to load AI features in time.");
+	while (waited < 120)
+	{
+		sleep(1);
+		waited++;
+
+		FILE *f = fopen(logPath.c_str(), "r");
+		if (!f)
+		{
+			// 2. Use a helper lambda or check to prevent redundant updates
+			if (lastMsg != "Loading Granite...") {
+				RmLoadingScreenSetText("Loading Granite...");
+				lastMsg = "Loading Granite...";
+			}
+			continue;
+		}
+
+		bool foundProgress = false;
+		while (fgets(line, sizeof(line), f))
+		{
+			if (strstr(line, "100%") != NULL)
+			{
+				RmLoadingScreenSetText("AI Engineer ready!");
+				fclose(f);
+				sleep(1);
+				return;
+			}
+
+			const char *pctMatch = strstr(line, "Loading weights:");
+			if (pctMatch)
+			{
+				int percent = 0;
+				const char *numStart = pctMatch + 16;
+				while (*numStart == ' ') numStart++;
+				
+				if (sscanf(numStart, "%d%%", &percent) == 1) {
+					char msg[64];
+					snprintf(msg, sizeof(msg), "Loading Granite: %d%%", percent);
+					
+					// 3. Only update if the percentage actually changed
+					if (lastMsg != msg) {
+						RmLoadingScreenSetText(msg);
+						lastMsg = msg;
+					}
+					foundProgress = true;
+				}
+			}
+		}
+
+		if (!foundProgress)
+		{
+			if (lastMsg != "Loading AI features...") {
+				RmLoadingScreenSetText("Loading AI features...");
+				lastMsg = "Loading AI features...";
+			}
+		}
+
+		fclose(f);
+	}
 }
 
 /** Initialize the cars for a race.

@@ -39,7 +39,7 @@
 
 #include "guifont.h"
 
-#define FONT_NB	9
+#define FONT_NB	10
 GfuiFontClass *gfuiFont[FONT_NB];
 const char *keySize[4] = { "size big", "size large", "size medium", "size small" };
 
@@ -96,7 +96,11 @@ void gfuiLoadFonts(void)
 	size = (int)GfParmGetNum(param, "Digital Font", keySize[0], (char*)NULL, 8.0);
 	gfuiFont[8] = new GfuiFontClass(buf);
 	gfuiFont[8]->create(size);
+	fontName = GfParmGetStr(param, "Menu Font", "name", "b5.glf");
+	snprintf(buf, BUFSIZE, "data/fonts/%s", fontName);
 
+	gfuiFont[9] = new GfuiFontClass(buf);
+	gfuiFont[9]->create(30);
 	GfParmReleaseHandle(param);
 }
 

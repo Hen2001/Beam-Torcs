@@ -143,7 +143,7 @@ cGrBoard::grDispDebug(float fps, tCarElt *car)
 	char buf[BUFSIZE];
 	int  x, y;
 	
-	x = Winx + Winw - 100;
+	x = Winx + Winw - 120;
 	y = Winy + Winh - 30;
 	
 	snprintf(buf, BUFSIZE, "FPS: %.1f", fps);
@@ -409,18 +409,6 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	GfuiPrintString(buf, grCarInfo[car->index].iconColor, GFUI_FONT_MEDIUM_C, x, y, GFUI_ALIGN_HL_VB);
 	y -= dy;
 	
-	// dy = GfuiFontHeight(GFUI_FONT_SMALL_C);
-	
-	// GfuiPrintString("Fuel:", grWhite, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	// if (car->_fuel < 5.0) {
-	// 	clr = grRed;
-	// } else {
-	// 	clr = grWhite;
-	// }
-	// snprintf(buf, BUFSIZE, "%.1f l", car->_fuel);
-	// GfuiPrintString(buf, clr, GFUI_FONT_SMALL_C, x2, y, GFUI_ALIGN_HR_VB);
-	// y -= dy;
-	
 	clr = grWhite;
 	
 	GfuiPrintString("Laps:", clr, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
@@ -467,12 +455,7 @@ cGrBoard::grDispCarBoard2(tCarElt *car, tSituation *s)
 	}
 	y -= dy;
 
-	// for (i = 0; i < 4; i++) {
-	// 	if (car->ctrl.msg[i]) {
-	// 		GfuiPrintString(car->ctrl.msg[i], car->ctrl.msgColor, GFUI_FONT_SMALL_C, x, y, GFUI_ALIGN_HL_VB);
-	// 		y -= dy;
-	// 	}
-	// }
+	
 	updateTelemetryMessage(car, s);
 
 std::string msg = chatbotMessage;
@@ -653,8 +636,8 @@ cGrBoard::grDispLeaderBoard(tCarElt *car, tSituation *s)
 		}
 	}
 	
-	x = Winx + 5;
-	x2 = Winx + 170;
+	x = Winx + 585;
+	x2 = Winx + 850;
 	y = Winy + 10;
 	dy = GfuiFontHeight(GFUI_FONT_SMALL_C);
 	
@@ -663,9 +646,9 @@ cGrBoard::grDispLeaderBoard(tCarElt *car, tSituation *s)
 	glBegin(GL_QUADS);
 	glColor4f(0.1, 0.1, 0.1, 0.8);
 	glVertex2f(x, Winy + 5);
-	glVertex2f(Winx + 180, Winy + 5);
-	glVertex2f(Winx + 180, y + dy * (maxi + drawLaps));
-	glVertex2f(x, y + dy * (maxi + drawLaps));
+	glVertex2f(Winx + 855, Winy + 5);
+	glVertex2f(Winx + 855, y + dy * (maxi + drawLaps) + 5);
+	glVertex2f(x, y + dy * (maxi + drawLaps) + 5);
 	glEnd();
 	glDisable(GL_BLEND);
 	
@@ -894,7 +877,7 @@ void cGrBoard::refreshBoard(tSituation *s, float Fps, int forceArcade, tCarElt *
 		grDispArcade(curr, s);
 	} else {
 		if (debugFlag) grDispDebug(Fps, curr);
-		if (GFlag) grDispGGraph(curr);
+		// if (GFlag) grDispGGraph(curr);
 		if (boardFlag) grDispCarBoard(curr, s);
 		if (leaderFlag) grDispLeaderBoard(curr, s);
 		if (counterFlag) grDispCounterBoard2(curr);
@@ -922,7 +905,7 @@ switch (curr->_pos) {
         break;
 }
 
-GfuiPrintString(posbuf, posColor, GFUI_FONT_BIG_C, Winx + Winw - 10, Winy + Winh - 30, GFUI_ALIGN_HR_VB);
+GfuiPrintString(posbuf, posColor, GFUI_FONT_HUGE, Winx + Winw - 0, Winy + Winh - 50, GFUI_ALIGN_HR_VB);
 
 	trackMap->display(curr, s, Winx, Winy, Winw, Winh);
 }
