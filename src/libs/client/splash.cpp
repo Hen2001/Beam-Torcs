@@ -199,7 +199,7 @@ int SplashScreen(void)
 {
 	void	*handle;
 	float	screen_gamma;
-	const char	*filename = "data/img/splash.png";
+	const char	*filename = "data/img/Beamsplash.png";
 	const int BUFSIZE = 1024;
 	char buf[BUFSIZE];
 	
