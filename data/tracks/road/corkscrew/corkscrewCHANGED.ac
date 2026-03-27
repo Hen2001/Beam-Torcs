@@ -4,8 +4,7 @@ MATERIAL "ac3dmat1" rgb 1 1 1  amb 1 1 1  emis 0.15 0.15 0.15  spec 0.05 0.05 0.
 MATERIAL "water" rgb 1 1 1  amb 1 1 1  emis 0.15 0.15 0.15  spec 0.5 0.5 0.7  shi 50  trans 0
 MATERIAL "trees" rgb 0.5 0.5 0.5  amb 0.5 0.5 0.5  emis 0.7 0.7 0.7  spec 0 0 0  shi 120  trans 0
 OBJECT world
-<<<<<<< HEAD
-kids 1087
+kids 1086
 OBJECT poly
 name "OBJECT802"
 loc 457.695 8.61974 -53.5566
@@ -23,56 +22,24 @@ numvert 8
 numsurf 4
 SURF 0x10
 mat 1
-=======
-kids 1085
-OBJECT poly
-name "OBJECT802"
-loc 457.793 8.62044 -52.7464
-texture "IBM-logo1.png"
-crease 45.000000
-numvert 8
--1.659 0.665693 -1.17303
--1.659 -0.665694 -1.17303
--1.62296 0.665693 1.17284
--1.62296 -0.665694 1.17284
-1.65903 0.665693 1.17303
-1.65903 -0.665694 1.17303
-1.65002 0.665693 -1.16449
-1.65002 -0.665694 -1.16449
-numsurf 4
-SURF 0x10
-mat 0
->>>>>>> 340f231 (.acc FIles)
 refs 3
 7 0.994861 -0.000559555
 6 0.994861 1.03991
 5 0.00252843 -0.0276343
 SURF 0x10
-<<<<<<< HEAD
 mat 1
-=======
-mat 0
->>>>>>> 340f231 (.acc FIles)
 refs 3
 4 0.00252843 1.03991
 5 0.00252843 -0.0276343
 6 0.994861 1.03991
 SURF 0x10
-<<<<<<< HEAD
 mat 1
-=======
-mat 0
->>>>>>> 340f231 (.acc FIles)
 refs 3
 3 0.995855 -0.00442742
 2 0.995855 1.02057
 1 0.00252843 -0.00442742
 SURF 0x10
-<<<<<<< HEAD
 mat 1
-=======
-mat 0
->>>>>>> 340f231 (.acc FIles)
 refs 3
 0 0.00252843 1.02057
 1 0.00252843 -0.00442742
@@ -86470,6 +86437,7 @@ refs 3
 kids 0
 OBJECT poly
 name "OBJECT12011"
+loc 0.0168457 0 -0.131165
 texture "treeRNS2.png"
 crease 45.000000
 numvert 38
@@ -97535,7 +97503,6 @@ refs 3
 kids 0
 OBJECT group
 name "TRACK61"
-loc 0 0 0.226776
 kids 79
 OBJECT group
 name "TKMN9111"
@@ -199546,25 +199513,6 @@ numvert 4
 -11.1713 -2.77695 12.8871
 -11.1713 2.77694 12.8871
 11.1713 2.77694 -12.8872
-numsurf 1
-SURF 0x30
-mat 0
-refs 4
-3 1 1
-2 0 1
-1 0 0
-0 1 0
-kids 0
-OBJECT poly
-name "rect"
-loc 491.199 9.91648 -225.404
-texture "3DSHU-logo.png"
-crease 45.000000
-numvert 4
-0 -3.62471 -5.89664
-0 -3.62471 5.89664
-0 3.62471 5.89664
-0 3.62471 -5.89664
 numsurf 1
 SURF 0x30
 mat 0
